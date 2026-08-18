@@ -95,8 +95,8 @@ export default function Color() {
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-1">
                 <ColorTable
                     colors={colors}
-                    onAdd={() => navigate('/admin/color/add')}
-                    onEdit={(id) => navigate(`/admin/color/${id}/edit`)}
+                    onAdd={() => navigate('/admin/colors/add')}
+                    onEdit={(id) => navigate(`/admin/colors/${id}/edit`)}
                     onRequestDelete={setColorToDelete}
                     deletingId={deletingId}
                     isLoading={isLoading}

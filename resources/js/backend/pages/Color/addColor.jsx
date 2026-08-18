@@ -87,7 +87,7 @@ export default function AddColor() {
             toast.success('Color created successfully.', {
                 style: { color: '#16a34a' },
             });
-            navigate('/admin/color');
+            navigate('/admin/colors');
         } catch (error) {
             setErrors(error.payload?.errors || {});
             if (!error.payload?.errors) {
@@ -110,7 +110,7 @@ export default function AddColor() {
                     form={form}
                     onChange={handleChange}
                     onSubmit={handleSubmit}
-                    onCancel={() => navigate('/admin/color')}
+                    onCancel={() => navigate('/admin/colors')}
                     isSubmitting={isSubmitting}
                     errors={errors}
                 />
