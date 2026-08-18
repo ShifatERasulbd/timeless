@@ -47,6 +47,16 @@ const PersonalizationOrders = lazyWithRetry(() => import('@/pages/Personalizatio
 const ViewPersonalizationOrder = lazyWithRetry(() => import('@/pages/Personalization/viewOrder'), 'personalization-order-view');
 const EditPersonalizationOrder = lazyWithRetry(() => import('@/pages/Personalization/editOrder'), 'personalization-order-edit');
 
+// Color Management
+const Colors = lazyWithRetry(() => import('@/pages/Color/color'), 'colors');
+const AddColor = lazyWithRetry(() => import('@/pages/Color/addColor'), 'add-color');
+const EditColor = lazyWithRetry(() => import('@/pages/Color/editColor'), 'edit-color');
+
+// Size Management
+const Sizes = lazyWithRetry(() => import('@/pages/Size/size'), 'sizes');
+const AddSize = lazyWithRetry(() => import('@/pages/Size/addSize'), 'add-size');
+const EditSize = lazyWithRetry(() => import('@/pages/Size/editSize'), 'edit-size');
+
 // Features Management
 const Features = lazyWithRetry(()=> import ('@/pages/Features/features'), 'features');
 const AddFeature = lazyWithRetry(() => import('@/pages/Features/addFeature'), 'add-feature');
@@ -115,6 +125,16 @@ export default function App() {
                             <Route path="category" element={<Categories />} />
                             <Route path="category/add" element={<AddCategory />} />
                             <Route path="category/:id/edit" element={<EditCategory />} />
+
+                            {/* Color Management */}
+                            <Route path="colors" element={<Colors />} />
+                            <Route path="colors/add" element={<AddColor />} />
+                            <Route path="colors/:id/edit" element={<EditColor />} />
+
+                            {/* Size Management */}
+                            <Route path="sizes" element={<Sizes />} />
+                            <Route path="sizes/add" element={<AddSize />} />
+                            <Route path="sizes/:id/edit" element={<EditSize />} />
 
                             {/* Stage Management */}
                             <Route path="stages" element={<Stages />} />

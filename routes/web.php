@@ -13,6 +13,8 @@ use App\Http\Controllers\ShopByProductController;
 use App\Http\Controllers\ShopByIndustryController;
 use App\Http\Controllers\SubCategoryController;
 use App\Http\Controllers\StageController;
+use App\Http\Controllers\SizeController;
+use App\Http\Controllers\ColorController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -64,7 +66,8 @@ Route::get('/admin/{path?}', function () {
 Route::get('/personalizer/{path?}', function () {
     return view('app');
 })->where('path', '.*');
-
+Route::get('/public/sizes', [SizeController::class, 'index']);
+Route::get('/public/colors', [ColorController::class, 'index']);
 Route::prefix('api')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:6,1');
     Route::get('/public/hero', [HeroController::class, 'publicHero']);
@@ -91,6 +94,9 @@ Route::prefix('api')->group(function () {
         Route::get('/personalizations/{personalization}', [PersonalizationController::class, 'show']);
         Route::put('/personalizations/{personalization}', [PersonalizationController::class, 'update']);
         Route::delete('/personalizations/{personalization}', [PersonalizationController::class, 'destroy']);
+        // Size Controller
+        	Route::put('/sizes/reorder', [SizeController::class, 'reorder']);
+	Route::apiResource('/sizes', SizeController::class)->whereNumber('size');
 
         // Hero Controller
         Route::apiResource('/heroes', HeroController::class);
@@ -106,6 +112,9 @@ Route::prefix('api')->group(function () {
 
         // stage Controller
         Route::apiResource('/stages', StageController::class);
+
+        // Color Controller
+        	Route::apiResource('/colors', ColorController::class);
 
         // Shop By Industry section + repeater items
         Route::get('/shop-by-industry', [ShopByIndustryController::class, 'show']);

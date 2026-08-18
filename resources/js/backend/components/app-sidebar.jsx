@@ -28,6 +28,8 @@ import {
 const homeItems = [
     { title: 'Dashboard', icon: Gauge, path: '/admin/dashboard' },
     { title: 'Stages', icon: Sparkles, path: '/admin/stages' },
+    { title: 'Colors', icon: Palette, path: '/admin/colors' },
+    { title: 'Sizes', icon: Blocks, path: '/admin/sizes' },
       
 ];
 
