@@ -9,6 +9,7 @@ import { fetchColors } from '@/pages/Color/api';
 import { fetchGrandChilds } from '@/pages/GrandChild/api';
 import { fetchSizes } from '@/pages/Size/api';
 import { fetchSubCategories } from '@/pages/SubCategory/api';
+import { fetchStages } from '@/pages/Stage/api';
 
 import { fetchProduct, updateProduct } from './api';
 
@@ -27,6 +28,7 @@ const initialForm = {
     additional_information: '',
     price: '',
     discount_price: '',
+    stage_prices: [],
     length: '',
     width: '',
     height: '',
@@ -132,6 +134,7 @@ export default function EditProduct() {
     const [categoryOptions, setCategoryOptions] = useState([]);
     const [subCategoryOptions, setSubCategoryOptions] = useState([]);
     const [grandChildOptions, setGrandChildOptions] = useState([]);
+    const [stageOptions, setStageOptions] = useState([]);
     const [isOptionsLoading, setIsOptionsLoading] = useState(true);
     const [colorSelectValue, setColorSelectValue] = useState('');
     const [sizeSelectValue, setSizeSelectValue] = useState('');
@@ -340,12 +343,13 @@ export default function EditProduct() {
             setIsOptionsLoading(true);
 
             try {
-                const [colors, sizes, categories, subCategories, grandChilds] = await Promise.all([
+                const [colors, sizes, categories, subCategories, grandChilds, stages] = await Promise.all([
                     fetchColors(),
                     fetchSizes(),
                     fetchCategories(),
                     fetchSubCategories(),
                     fetchGrandChilds(),
+                    fetchStages(),
                 ]);
                 if (!ignore) {
                     setColorOptions(Array.isArray(colors) ? colors : []);
@@ -353,6 +357,7 @@ export default function EditProduct() {
                     setCategoryOptions(Array.isArray(categories) ? categories : []);
                     setSubCategoryOptions(Array.isArray(subCategories) ? subCategories : []);
                     setGrandChildOptions(Array.isArray(grandChilds) ? grandChilds : []);
+                    setStageOptions(Array.isArray(stages) ? stages : []);
                 }
             } catch {
                 if (!ignore) {
@@ -361,6 +366,7 @@ export default function EditProduct() {
                     setCategoryOptions([]);
                     setSubCategoryOptions([]);
                     setGrandChildOptions([]);
+                    setStageOptions([]);
                 }
             } finally {
                 if (!ignore) {
@@ -444,6 +450,7 @@ export default function EditProduct() {
                         additional_information: data?.additional_information || '',
                         price: data?.price ?? '',
                         discount_price: data?.discount_price ?? '',
+                        stage_prices: Array.isArray(data?.stage_prices) ? data.stage_prices : [],
                         length: data?.length ?? '',
                         width: data?.width ?? '',
                         height: data?.height ?? '',
@@ -1189,23 +1196,7 @@ export default function EditProduct() {
                 clear_size_charts: existingSizeChartImages.length === 0 && newSizeChartImageFiles.length === 0,
             });
 
-            const joorPayload = {
-                joor_synced: response?.joor_synced ?? null,
-                joor_sync_error: response?.joor_sync_error ?? null,
-                joor_response: response?.joor_response ?? null,
-            };
-
-            console.log('JOOR response (update product):', joorPayload);
-
-            try {
-                sessionStorage.setItem('latestJoorResponse', JSON.stringify({
-                    source: 'update',
-                    at: new Date().toISOString(),
-                    ...joorPayload,
-                }));
-            } catch (storageError) {
-                console.warn('Unable to persist JOOR response in sessionStorage.', storageError);
-            }
+         
 
             toast.success('Product updated successfully', {
                 style: {
@@ -1244,6 +1235,7 @@ export default function EditProduct() {
                     categoryOptions={categoryOptions}
                     subCategoryOptions={filteredSubCategoryOptions}
                     grandChildOptions={filteredGrandChildOptions}
+                    stageOptions={stageOptions}
                     isOptionsLoading={isOptionsLoading}
                     colorSelectValue={colorSelectValue}
                     sizeSelectValue={sizeSelectValue}

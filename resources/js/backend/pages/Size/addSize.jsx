@@ -79,7 +79,7 @@ export default function AddSize() {
             toast.success('Size created successfully.', {
                 style: { color: '#16a34a' },
             });
-            navigate('/admin/size');
+            navigate('/admin/sizes');
         } catch (error) {
             setErrors(error.payload?.errors || {});
             if (!error.payload?.errors) {
@@ -103,7 +103,7 @@ export default function AddSize() {
                         form={form}
                         onChange={handleChange}
                         onSubmit={handleSubmit}
-                        onCancel={() => navigate('/admin/size')}
+                        onCancel={() => navigate('/admin/sizes')}
                         isSubmitting={isSubmitting}
                         errors={errors}
                     />

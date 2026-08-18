@@ -145,8 +145,8 @@ export default function Size() {
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-1">
                 <SizeTable
                 sizes={sizes}
-              onAdd={() => navigate('/admin/size/add')}
-              onEdit={(id) => navigate(`/admin/size/${id}/edit`)}
+              onAdd={() => navigate('/admin/sizes/add')}
+              onEdit={(id) => navigate(`/admin/sizes/${id}/edit`)}
                 onRequestDelete={setSizeToDelete}
                 onReorder={handleReorder}
                 deletingId={deletingId}

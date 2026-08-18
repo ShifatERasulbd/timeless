@@ -9,6 +9,7 @@ import { fetchColors } from '@/pages/Color/api';
 import { fetchGrandChilds } from '@/pages/GrandChild/api';
 import { fetchSizes } from '@/pages/Size/api';
 import { fetchSubCategories } from '@/pages/SubCategory/api';
+import { fetchStages } from '@/pages/Stage/api';
 
 import { createProduct } from './api';
 
@@ -27,6 +28,7 @@ const initialForm = {
     additional_information: '',
     price: '',
     discount_price: '',
+    stage_prices: [],
     cover_image: '',
     size_chart_image: '',
     category_id: '',
@@ -107,6 +109,7 @@ export default function AddProduct() {
     const [categoryOptions, setCategoryOptions] = useState([]);
     const [subCategoryOptions, setSubCategoryOptions] = useState([]);
     const [grandChildOptions, setGrandChildOptions] = useState([]);
+    const [stageOptions, setStageOptions] = useState([]);
     const [isOptionsLoading, setIsOptionsLoading] = useState(true);
     const [errors, setErrors] = useState({});
     const [requestError, setRequestError] = useState('');
@@ -153,12 +156,13 @@ export default function AddProduct() {
             setIsOptionsLoading(true);
 
             try {
-                const [colors, sizes, categories, subCategories, grandChilds] = await Promise.all([
+                const [colors, sizes, categories, subCategories, grandChilds, stages] = await Promise.all([
                     fetchColors(),
                     fetchSizes(),
                     fetchCategories(),
                     fetchSubCategories(),
                     fetchGrandChilds(),
+                    fetchStages(),
                 ]);
                 if (!ignore) {
                     setColorOptions(Array.isArray(colors) ? colors : []);
@@ -166,6 +170,7 @@ export default function AddProduct() {
                     setCategoryOptions(Array.isArray(categories) ? categories : []);
                     setSubCategoryOptions(Array.isArray(subCategories) ? subCategories : []);
                     setGrandChildOptions(Array.isArray(grandChilds) ? grandChilds : []);
+                    setStageOptions(Array.isArray(stages) ? stages : []);
                 }
             } catch {
                 if (!ignore) {
@@ -174,6 +179,7 @@ export default function AddProduct() {
                     setCategoryOptions([]);
                     setSubCategoryOptions([]);
                     setGrandChildOptions([]);
+                    setStageOptions([]);
                 }
             } finally {
                 if (!ignore) {
@@ -618,23 +624,9 @@ export default function AddProduct() {
                 clear_size_charts: sizeChartImageFiles.length === 0,
             });
 
-            const joorPayload = {
-                joor_synced: response?.joor_synced ?? null,
-                joor_sync_error: response?.joor_sync_error ?? null,
-                joor_response: response?.joor_response ?? null,
-            };
+            
 
-            console.log('JOOR response (create product):', joorPayload);
-
-            try {
-                sessionStorage.setItem('latestJoorResponse', JSON.stringify({
-                    source: 'create',
-                    at: new Date().toISOString(),
-                    ...joorPayload,
-                }));
-            } catch (storageError) {
-                console.warn('Unable to persist JOOR response in sessionStorage.', storageError);
-            }
+          
 
             toast.success('Product created successfully', {
                 style: {
@@ -670,6 +662,7 @@ export default function AddProduct() {
                     categoryOptions={categoryOptions}
                     subCategoryOptions={filteredSubCategoryOptions}
                     grandChildOptions={filteredGrandChildOptions}
+                    stageOptions={stageOptions}
                     isOptionsLoading={isOptionsLoading}
                     colorSelectValue={colorSelectValue}
                     sizeSelectValue={sizeSelectValue}

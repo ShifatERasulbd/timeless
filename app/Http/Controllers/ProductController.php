@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Color;
 use App\Models\Product;
 use App\Models\Size;
-use App\Services\JoorService;
+
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\UploadedFile;
@@ -22,9 +22,7 @@ class ProductController extends Controller
 {
     public const FABRIC_OPTIONS = ['Flex Twill', 'Dual Skin Scuba', 'Aero Twill', 'Terra Soft'];
 
-    public function __construct(private readonly JoorService $joorService)
-    {
-    }
+    
 
     public function index(): JsonResponse
     {
@@ -51,6 +49,7 @@ class ProductController extends Controller
             'additional_information',
             'price',
             'discount_price',
+            'stage_prices',
             'cover_image',
             'size_chart_image',
             'size_chart_images',
@@ -121,6 +120,7 @@ class ProductController extends Controller
             'additional_information',
             'price',
             'discount_price',
+            'stage_prices',
             'cover_image',
             'size_chart_image',
             'size_chart_images',
@@ -169,6 +169,7 @@ class ProductController extends Controller
             'additional_information',
             'price',
             'discount_price',
+            'stage_prices',
             'cover_image',
             'size_chart_image',
             'size_chart_images',
@@ -218,7 +219,7 @@ class ProductController extends Controller
     public function store(Request $request): JsonResponse
     {
         $this->normalizeBooleanFields($request, ['show_on_best_sellers']);
-        $this->normalizeJsonFields($request, ['variant_rows', 'color_variant_images', 'color_variant_videos', 'color_variant_size_charts', 'size_chart_images', 'product_features']);
+        $this->normalizeJsonFields($request, ['variant_rows', 'color_variant_images', 'color_variant_videos', 'color_variant_size_charts', 'size_chart_images', 'product_features', 'stage_prices']);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -236,6 +237,10 @@ class ProductController extends Controller
             'long_description' => 'nullable|string',
             'additional_information' => 'nullable|string',
             'price' => 'required|numeric',
+            'stage_prices' => 'nullable|array',
+            'stage_prices.*.stage_id' => 'required|integer|exists:statges,id',
+            'stage_prices.*.status' => ['required', 'string', Rule::in(['User', 'Guest'])],
+            'stage_prices.*.price' => 'required|numeric|min:0',
             'cover_image' => 'nullable|string',
             'size_chart_image' => 'nullable|string',
             'size_chart_images' => 'nullable|array',
@@ -351,36 +356,14 @@ class ProductController extends Controller
             $validated,
         );
 
-        $joorSynced = false;
-        $joorSyncError = null;
-        $joorResponse = null;
-
-        try {
-            $joorResponse = $this->joorService->syncProduct($product);
-            $joorSynced = (bool) ($joorResponse['ok'] ?? false);
-
-            if (! $joorSynced) {
-                $errors = data_get($joorResponse, 'body.errors', []);
-                $joorSyncError = is_array($errors) ? json_encode($errors) : 'JOOR sync failed.';
-            }
-        } catch (Throwable $exception) {
-            Log::warning('Failed to sync product to JOOR.', [
-                'product_id' => $product->id,
-                'sku' => $product->sku,
-                'error' => $exception->getMessage(),
-            ]);
-
-            $joorSyncError = $exception->getMessage();
-        }
+      
 
         return response()->json([
             'message' => $product->wasRecentlyCreated
                 ? 'Product created successfully'
                 : 'Product updated successfully (matched by SKU)',
             'product' => $product,
-            'joor_synced' => $joorSynced,
-            'joor_sync_error' => $joorSyncError,
-            'joor_response' => $joorResponse,
+            
         ], $product->wasRecentlyCreated ? 201 : 200);
     }
 
@@ -395,7 +378,7 @@ class ProductController extends Controller
         }
 
         $this->normalizeBooleanFields($request, ['show_on_best_sellers', 'clear_gallery', 'clear_videos', 'clear_size_charts']);
-        $this->normalizeJsonFields($request, ['variant_rows', 'color_variant_images', 'color_variant_videos', 'color_variant_size_charts', 'size_chart_images', 'product_features', 'image_gallery_existing', 'product_videos_existing', 'size_chart_images_existing']);
+        $this->normalizeJsonFields($request, ['variant_rows', 'color_variant_images', 'color_variant_videos', 'color_variant_size_charts', 'size_chart_images', 'product_features', 'stage_prices', 'image_gallery_existing', 'product_videos_existing', 'size_chart_images_existing']);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -414,6 +397,10 @@ class ProductController extends Controller
             'additional_information' => 'nullable|string',
             'price' => 'required|numeric',
             'discount_price' => 'nullable|numeric',
+            'stage_prices' => 'nullable|array',
+            'stage_prices.*.stage_id' => 'required|integer|exists:statges,id',
+            'stage_prices.*.status' => ['required', 'string', Rule::in(['User', 'Guest'])],
+            'stage_prices.*.price' => 'required|numeric|min:0',
             'length' => 'nullable|numeric|min:0',
             'width' => 'nullable|numeric|min:0',
             'height' => 'nullable|numeric|min:0',
@@ -579,27 +566,7 @@ class ProductController extends Controller
 
         $productModel->update($validated);
 
-        $joorSynced = false;
-        $joorSyncError = null;
-        $joorResponse = null;
-
-        try {
-            $joorResponse = $this->joorService->syncProduct($productModel);
-            $joorSynced = (bool) ($joorResponse['ok'] ?? false);
-
-            if (! $joorSynced) {
-                $errors = data_get($joorResponse, 'body.errors', []);
-                $joorSyncError = is_array($errors) ? json_encode($errors) : 'JOOR sync failed.';
-            }
-        } catch (Throwable $exception) {
-            Log::warning('Failed to sync product to JOOR on update.', [
-                'product_id' => $productModel->id,
-                'sku' => $productModel->sku,
-                'error' => $exception->getMessage(),
-            ]);
-
-            $joorSyncError = $exception->getMessage();
-        }
+      
 
         if (array_key_exists('image_gallery', $validated)) {
             $this->deleteRemovedUploadedFiles(
@@ -625,9 +592,7 @@ class ProductController extends Controller
         return response()->json([
             'message' => 'Product updated successfully',
             'product' => $productModel,
-            'joor_synced' => $joorSynced,
-            'joor_sync_error' => $joorSyncError,
-            'joor_response' => $joorResponse,
+           
         ]);
     }
 

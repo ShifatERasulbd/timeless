@@ -14,6 +14,9 @@ async function ensureCsrfCookie() {
 
 export async function requestJson(url, options = {}) {
     const { needsCsrf = false, headers = {}, ...fetchOptions } = options;
+    const contentHeaders = typeof fetchOptions.body === 'string'
+        ? { 'Content-Type': 'application/json' }
+        : {};
 
     if (needsCsrf) {
         await ensureCsrfCookie();
@@ -25,6 +28,7 @@ export async function requestJson(url, options = {}) {
         headers: {
             Accept: 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
+            ...contentHeaders,
             ...headers,
         },
     });

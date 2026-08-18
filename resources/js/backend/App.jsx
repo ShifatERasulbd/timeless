@@ -93,6 +93,11 @@ function LegacyColorEditRedirect() {
     return <Navigate to={`/admin/colors/${id}/edit`} replace />;
 }
 
+function LegacySizeEditRedirect() {
+    const { id } = useParams();
+    return <Navigate to={`/admin/sizes/${id}/edit`} replace />;
+}
+
 
 export default function App() {
     return (
@@ -143,9 +148,9 @@ export default function App() {
                             <Route path="sizes" element={<Sizes />} />
                             <Route path="sizes/add" element={<AddSize />} />
                             <Route path="sizes/:id/edit" element={<EditSize />} />
-                            <Route path="sizes" element={<Sizes />} />
-                            <Route path="sizes/add" element={<AddSize />} />
-                            <Route path="sizes/:id/edit" element={<EditSize />} />
+                            <Route path="size" element={<Navigate to="/admin/sizes" replace />} />
+                            <Route path="size/add" element={<Navigate to="/admin/sizes/add" replace />} />
+                            <Route path="size/:id/edit" element={<LegacySizeEditRedirect />} />
 
                             {/* Stage Management */}
                             <Route path="stages" element={<Stages />} />

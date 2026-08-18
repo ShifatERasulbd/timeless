@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import RichTextEditor from './richTextEditor';
 import ProductFeaturesRepeater from './ProductFeaturesRepeater';
+import StagePricesRepeater from './StagePricesRepeater';
 
 const FABRIC_OPTIONS = ['Flex Twill', 'Dual Skin Scuba', 'Aero Twill', 'Terra Soft'];
 
@@ -23,6 +24,7 @@ export default function EditForm({
     categoryOptions = [],
     subCategoryOptions = [],
     grandChildOptions = [],
+    stageOptions = [],
     isOptionsLoading = false,
     colorSelectValue = '',
     sizeSelectValue = '',
@@ -873,6 +875,14 @@ export default function EditForm({
                                         />
                                         {errors.discount_price && <p className="text-xs text-destructive">{errors.discount_price[0]}</p>}
                                     </div>
+
+                                    <StagePricesRepeater
+                                        value={form.stage_prices}
+                                        stages={stageOptions}
+                                        errors={errors}
+                                        disabled={isSubmitting || isOptionsLoading}
+                                        onChange={onChange}
+                                    />
                                 </div>
                             </div>
 
