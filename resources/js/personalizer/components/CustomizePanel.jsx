@@ -58,6 +58,7 @@ export default function CustomizePanel({
     productName,
     productPrice,
     designPrice,
+    designBreakdown = [],
     selectedColor,
     productColors,
     productColor,
@@ -141,6 +142,15 @@ export default function CustomizePanel({
                         <p className="text-sm text-zinc-500">Design Price</p>
                         <span className="text-sm font-semibold text-zinc-900">{designPrice || '$0.00'}</span>
                     </div>
+                    {designBreakdown.length > 0 && (
+                        <ul className="mt-1 space-y-0.5">
+                            {designBreakdown.map((row) => (
+                                <li key={row.size} className="text-xs text-zinc-500">
+                                    {row.size} inch square{row.count > 1 ? ` x${row.count}` : ''} = <span className="font-medium text-zinc-700">${row.lineTotal.toFixed(2)}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
                 </div>
 
                 <div className="mt-auto space-y-3 rounded-3xl border border-zinc-200 bg-zinc-50 p-4">

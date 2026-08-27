@@ -368,6 +368,7 @@ export default function Features() {
     const [canRedo, setCanRedo] = useState(false);
     const [personalizerPriceTiers, setPersonalizerPriceTiers] = useState([]);
     const [designPrice, setDesignPrice] = useState(0);
+    const [designBreakdown, setDesignBreakdown] = useState([]);
 
     useEffect(() => {
         const controller = new AbortController();
@@ -627,7 +628,8 @@ export default function Features() {
 
     // Prices each design element (across both views) by its own area in square inches (same
     // metric as the MAX_ELEMENT_AREA_SQIN cap), looked up against the admin-configured
-    // personalizer price tiers, then sums them for the design total.
+    // personalizer price tiers, then sums them for the design total. Also groups same-size
+    // components together (e.g. "14 in² x2 = $30") for the breakdown display.
     const computeDesignPrice = () => {
         const components = productViews.flatMap((view) => getViewObjects(view.id).map((object) => {
             const widthPx = object.getScaledWidth?.() || 0;
@@ -649,7 +651,22 @@ export default function Features() {
 
         const total = components.reduce((sum, component) => sum + component.price, 0);
 
-        return { total, components };
+        const groupsBySize = new Map();
+        components.forEach((component) => {
+            const sizeKey = Math.round(component.area_sq_in);
+            const existing = groupsBySize.get(sizeKey);
+
+            if (existing) {
+                existing.count += 1;
+                existing.lineTotal += component.price;
+            } else {
+                groupsBySize.set(sizeKey, { size: sizeKey, count: 1, unitPrice: component.price, lineTotal: component.price });
+            }
+        });
+
+        const breakdown = Array.from(groupsBySize.values()).sort((a, b) => b.size - a.size);
+
+        return { total, components, breakdown };
     };
 
     const clampObjectAreaToLimit = (object, viewId = activeViewRef.current) => {
@@ -979,7 +996,10 @@ export default function Features() {
                 .filter(Boolean)
         );
         setUsedDesignIds(presentDesignIds);
-        setDesignPrice(computeDesignPrice().total);
+
+        const nextDesignPrice = computeDesignPrice();
+        setDesignPrice(nextDesignPrice.total);
+        setDesignBreakdown(nextDesignPrice.breakdown);
     };
 
     const applyViewVisibility = (viewId) => {
@@ -2252,6 +2272,7 @@ export default function Features() {
                             productName={productName}
                             productPrice={productPrice}
                             designPrice={`$${designPrice.toFixed(2)}`}
+                            designBreakdown={designBreakdown}
                             selectedColor={selectedColor}
                             productColors={productColors}
                             productColor={productColor}
