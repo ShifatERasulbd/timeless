@@ -2,13 +2,17 @@ import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
     Check,
+    Circle as CircleIcon,
     ImagePlus,
     Italic,
     Palette,
     RotateCcw,
     RotateCw,
     Shapes,
+    Square,
+    Star as StarIcon,
     Trash2,
+    Triangle as TriangleIcon,
     Type,
     Upload,
     X,
@@ -21,7 +25,7 @@ const TOOL_ITEMS = [
     { id: 'color', label: 'Color', icon: Palette, hasDrawer: true },
     { id: 'text', label: 'Text', icon: Type, hasDrawer: true },
     { id: 'images', label: 'Images', icon: ImagePlus },
-    { id: 'shapes', label: 'Shapes', icon: Shapes },
+    { id: 'shapes', label: 'Shapes', icon: Shapes, hasDrawer: true },
     { id: 'undo', label: 'Undo', icon: RotateCcw, action: true },
     { id: 'redo', label: 'Redo', icon: RotateCw, action: true },
 ];
@@ -104,6 +108,11 @@ export default function LeftToolbar({
     onUpdateTextLayer,
     onDeleteSelected,
     selectedObjectId,
+    draftShapeColor,
+    onDraftShapeColorChange,
+    activeShapeLayers = [],
+    onUpdateShapeLayer,
+    onAddShape,
 }) {
     const buttonRefs = useRef({});
     const [openDrawer, setOpenDrawer] = useState(null);
@@ -441,6 +450,100 @@ export default function LeftToolbar({
                                             aria-label="Curve intensity"
                                         />
                                     </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </ToolDrawer>
+            )}
+
+            {openDrawer === 'shapes' && (
+                <ToolDrawer coords={drawerCoords} onClose={hideDrawer}>
+                    <p className="pr-6 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Add shape</p>
+
+                    <div className="mt-3 space-y-3">
+                        <div className="grid grid-cols-[minmax(0,1fr)_40px] gap-2">
+                            <div className="grid grid-cols-4 gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => onAddShape?.('rect')}
+                                    aria-label="Add rectangle"
+                                    className="flex h-10 items-center justify-center rounded-xl border border-zinc-200 text-zinc-600 transition-colors hover:border-zinc-400 hover:text-zinc-900"
+                                >
+                                    <Square className="size-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onAddShape?.('circle')}
+                                    aria-label="Add circle"
+                                    className="flex h-10 items-center justify-center rounded-xl border border-zinc-200 text-zinc-600 transition-colors hover:border-zinc-400 hover:text-zinc-900"
+                                >
+                                    <CircleIcon className="size-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onAddShape?.('triangle')}
+                                    aria-label="Add triangle"
+                                    className="flex h-10 items-center justify-center rounded-xl border border-zinc-200 text-zinc-600 transition-colors hover:border-zinc-400 hover:text-zinc-900"
+                                >
+                                    <TriangleIcon className="size-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onAddShape?.('star')}
+                                    aria-label="Add star"
+                                    className="flex h-10 items-center justify-center rounded-xl border border-zinc-200 text-zinc-600 transition-colors hover:border-zinc-400 hover:text-zinc-900"
+                                >
+                                    <StarIcon className="size-4" />
+                                </button>
+                            </div>
+                            <input
+                                type="color"
+                                key={`toolbar-shape-color-${selectedObjectId || 'new'}`}
+                                defaultValue={draftShapeColor}
+                                onChange={(event) => onDraftShapeColorChange?.(event.target.value)}
+                                className="h-10 w-full rounded-xl border border-zinc-200 bg-zinc-50 p-1"
+                            />
+                        </div>
+                    </div>
+
+                    {activeShapeLayers.length > 0 && (
+                        <div className="mt-4 space-y-2 border-t border-zinc-100 pt-3">
+                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Added shapes</p>
+                            {activeShapeLayers.map((layer) => (
+                                <div
+                                    key={layer.id}
+                                    className={cn(
+                                        'flex items-center gap-2 rounded-xl border p-2 transition-colors',
+                                        selectedObjectId === layer.id ? 'border-zinc-900' : 'border-zinc-200 hover:border-zinc-400'
+                                    )}
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => onSelectObject?.(layer.id)}
+                                        className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                                    >
+                                        <span className="truncate text-xs font-medium text-zinc-700">{layer.label}</span>
+                                    </button>
+                                    <input
+                                        type="color"
+                                        key={`toolbar-shape-layer-color-${layer.id}`}
+                                        defaultValue={layer.fill}
+                                        onFocus={() => onSelectObject?.(layer.id)}
+                                        onChange={(event) => onUpdateShapeLayer?.(layer.id, { fill: event.target.value })}
+                                        className="size-7 shrink-0 rounded-full border border-zinc-200 p-0.5"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            onSelectObject?.(layer.id);
+                                            onDeleteSelected?.();
+                                        }}
+                                        aria-label="Delete shape"
+                                        className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                                    >
+                                        <Trash2 className="size-4" />
+                                    </button>
                                 </div>
                             ))}
                         </div>

@@ -170,6 +170,10 @@ const UPLOADED_DESIGNS_STORAGE_KEY = 'personalizer:uploadedDesigns';
 const CANVAS_DRAFT_STORAGE_KEY = 'personalizer:canvasDraft';
 const PENDING_ORDER_STORAGE_KEY = 'personalizer:pendingOrder';
 const IMAGE_LAYERS_STORAGE_KEY = 'personalizer:imageLayersDraft';
+const PIXELS_PER_INCH = 96;
+// Real-world size of the printable area on the garment, used to calibrate on-canvas measurements.
+const PRINT_AREA_WIDTH_IN = 14;
+const PRINT_AREA_HEIGHT_IN = 8;
 
 function isBlobObjectUrl(url) {
     return typeof url === 'string' && url.startsWith('blob:');
@@ -293,6 +297,7 @@ export default function Features() {
     const redoRef = useRef([]);
     const isRestoringRef = useRef(false);
     const uploadedDesignsRef = useRef([]);
+    const sizeLabelRef = useRef(null);
 
     const [isReady, setIsReady] = useState(false);
     const [activeTool, setActiveTool] = useState('upload');
@@ -523,6 +528,66 @@ export default function Features() {
         return Math.max(6, Math.floor(requestedFontSize * ratio));
     };
 
+    const hideSizeLabel = () => {
+        const canvas = getCanvas();
+        const label = sizeLabelRef.current;
+        if (!label) return;
+
+        sizeLabelRef.current = null;
+        canvas?.remove(label);
+        canvas?.renderAll();
+    };
+
+    const showSizeLabel = (object) => {
+        const canvas = getCanvas();
+        if (!canvas || !object || object.get?.('isBaseImage')) return;
+
+        object.setCoords();
+        const widthPx = object.getScaledWidth?.() || 0;
+        const heightPx = object.getScaledHeight?.() || 0;
+
+        const viewId = object.get?.('viewId') || activeViewRef.current;
+        const area = getDesignArea(viewId);
+        const pxPerInchX = area?.width ? area.width / PRINT_AREA_WIDTH_IN : PIXELS_PER_INCH;
+        const pxPerInchY = area?.height ? area.height / PRINT_AREA_HEIGHT_IN : PIXELS_PER_INCH;
+
+        const widthIn = widthPx / pxPerInchX;
+        const heightIn = heightPx / pxPerInchY;
+        const areaSqIn = widthIn * heightIn;
+
+        const bounds = object.getBoundingRect();
+        const text = `${widthIn.toFixed(2)} × ${heightIn.toFixed(2)} in  •  ${areaSqIn.toFixed(2)} in²`;
+
+        let label = sizeLabelRef.current;
+        if (!label) {
+            label = new IText(text, {
+                fontSize: 13,
+                fontFamily: 'sans-serif',
+                fill: '#ffffff',
+                backgroundColor: '#18181b',
+                selectable: false,
+                evented: false,
+                hasControls: false,
+                hasBorders: false,
+                originX: 'center',
+                originY: 'top',
+                excludeFromExport: true,
+            });
+            label.set({ objectId: 'size-label', isSizeLabel: true });
+            sizeLabelRef.current = label;
+            canvas.add(label);
+        }
+
+        label.set({
+            text,
+            left: bounds.left + bounds.width / 2,
+            top: bounds.top + bounds.height + 8,
+        });
+        label.setCoords();
+        canvas.bringObjectToFront(label);
+        canvas.renderAll();
+    };
+
     const isObjectInsideArea = (object, viewId = activeViewRef.current) => {
         const area = getDesignArea(viewId);
         if (!object || !area) return true;
@@ -569,7 +634,7 @@ export default function Features() {
 
         return canvas
             .getObjects()
-            .filter((object) => !object.get?.('isBaseImage') && !object.get?.('isDesignAreaGuide'));
+            .filter((object) => !object.get?.('isBaseImage') && !object.get?.('isDesignAreaGuide') && !object.get?.('isSizeLabel'));
     };
 
     const getViewObjects = (viewId = activeViewRef.current) => {
@@ -924,6 +989,7 @@ export default function Features() {
         };
 
         const handleSelectionChange = () => {
+            hideSizeLabel();
             syncSelectionState();
             refreshLayers();
         };
@@ -963,10 +1029,16 @@ export default function Features() {
 
                 clampObjectToArea(target, { shouldFit });
             }
+
+            if (action === 'scale' || action === 'scaleX' || action === 'scaleY') {
+                showSizeLabel(target);
+            }
+
             canvas.renderAll();
         };
 
         const handleObjectModified = (event) => {
+            hideSizeLabel();
             const activeObject = event?.target || canvas.getActiveObject();
             if (activeObject) {
                 if (activeObject.get?.('layerType') === 'image') {
@@ -1726,6 +1798,7 @@ export default function Features() {
         const overlays = sourceCanvas
             .getObjects()
             .filter((object) => !object.get?.('isBaseImage')
+                && !object.get?.('isSizeLabel')
                 && object.get?.('viewId') === view.id
                 && object.get?.('hiddenByUser') !== true
                 && (object.get?.('layerType') !== 'image' || object.get?.('outOfBounds') !== true));
@@ -1994,6 +2067,11 @@ export default function Features() {
                             onUpdateTextLayer={updateTextLayer}
                             onDeleteSelected={handleDeleteSelected}
                             selectedObjectId={selectedObjectId}
+                            draftShapeColor={draftShapeColor}
+                            onDraftShapeColorChange={handleDraftShapeColorChange}
+                            activeShapeLayers={activeShapeLayers}
+                            onUpdateShapeLayer={updateShapeLayer}
+                            onAddShape={addShape}
                         />
                     </div>
 
