@@ -6,7 +6,7 @@ export default function SingleProductMediaGallery({ images, selectedImage, onSel
                 <img
                     src={selectedImage}
                     alt={productName}
-                    className="h-[500px] w-full object-cover object-center sm:h-[580px] xl:h-[640px]"
+                    className="h-[500px] w-full object-contain object-center sm:h-[580px] xl:h-[640px]"
                 />
             </div>
 
