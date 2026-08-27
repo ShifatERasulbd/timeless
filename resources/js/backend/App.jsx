@@ -40,6 +40,11 @@ const Stages = lazyWithRetry(() => import('@/pages/Stage/stage'), 'stages');
 const AddStage = lazyWithRetry(() => import('@/pages/Stage/addStage'), 'add-stage');
 const EditStage = lazyWithRetry(() => import('@/pages/Stage/editStage'), 'edit-stage');
 
+// Personalizer Price Management
+const PersonalizerPrices = lazyWithRetry(() => import('@/pages/PersonalizerPrice/personalizerPrice'), 'personalizer-prices');
+const AddPersonalizerPrice = lazyWithRetry(() => import('@/pages/PersonalizerPrice/addPersonalizerPrice'), 'add-personalizer-price');
+const EditPersonalizerPrice = lazyWithRetry(() => import('@/pages/PersonalizerPrice/editPersonalizerPrice'), 'edit-personalizer-price');
+
 // Personalization Management
 const PersonalizerFeatures = lazyWithRetry(() => import('../personalizer/features'), 'personalizer-features');
 const PersonalizerConfirmOrder = lazyWithRetry(() => import('../personalizer/confirm-order'), 'personalizer-confirm-order');
@@ -160,6 +165,11 @@ export default function App() {
                             <Route path="stage" element={<Navigate to="/admin/stages" replace />} />
                             <Route path="stage/add" element={<Navigate to="/admin/stages/add" replace />} />
                             <Route path="stage/:id/edit" element={<LegacyStageEditRedirect />} />
+
+                            {/* Personalizer Price Management */}
+                            <Route path="personalizer-prices" element={<PersonalizerPrices />} />
+                            <Route path="personalizer-prices/add" element={<AddPersonalizerPrice />} />
+                            <Route path="personalizer-prices/:id/edit" element={<EditPersonalizerPrice />} />
 
                             {/* SubCategory Management */}
                             <Route path="sub-category" element={<SubCategories />} />

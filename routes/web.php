@@ -13,6 +13,7 @@ use App\Http\Controllers\ShopByProductController;
 use App\Http\Controllers\ShopByIndustryController;
 use App\Http\Controllers\SubCategoryController;
 use App\Http\Controllers\StageController;
+use App\Http\Controllers\PersonalizerPriceController;
 use App\Http\Controllers\SizeController;
 use App\Http\Controllers\ColorController;
 use Illuminate\Http\Request;
@@ -79,6 +80,7 @@ Route::prefix('api')->group(function () {
     Route::get('/public/products/{product:slug}', [ApiProductController::class, 'show']);
     Route::get('/public/customize-home-page', [\App\Http\Controllers\CustomizeHomeController::class, 'publicShow']);
     Route::get('/public/about-page', [AboutPageSectionController::class, 'publicIndex']);
+    Route::get('/public/personalizer-prices', [PersonalizerPriceController::class, 'index']);
     Route::post('/personalizations', [PersonalizationController::class, 'store']);
     Route::patch('/personalizations/{personalization}/confirm', [PersonalizationController::class, 'confirm']);
 
@@ -113,6 +115,9 @@ Route::prefix('api')->group(function () {
 
         // stage Controller
         Route::apiResource('/stages', StageController::class);
+
+        // Personalizer Price Controller
+        Route::apiResource('/personalizer-prices', PersonalizerPriceController::class);
 
         // Color Controller
         	Route::apiResource('/colors', ColorController::class);

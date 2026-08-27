@@ -49,6 +49,7 @@ const inventoryItems = [
 
 const orderManagementItems = [
     { title: 'Personalization Orders', icon: Palette, path: '/admin/personalization/orders' },
+    { title: 'Personalizer Prices', icon: Sparkles, path: '/admin/personalizer-prices' },
 ]
 
 

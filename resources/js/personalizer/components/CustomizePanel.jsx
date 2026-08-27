@@ -56,6 +56,8 @@ function fromUnitToPx(value, unit) {
 export default function CustomizePanel({
     activeTool,
     productName,
+    productPrice,
+    designPrice,
     selectedColor,
     productColors,
     productColor,
@@ -129,40 +131,16 @@ export default function CustomizePanel({
                     <h1 className="text-2xl font-semibold tracking-tight">
                         Personalize your {productName}
                     </h1>
-                    <p className="mt-1 text-sm text-zinc-500">Create something timeless.</p>
-                </div>
-
-           
-              
-
-              
-
-                <div className="space-y-3 rounded-3xl border p-4">
-                    <div className="flex items-start justify-between gap-2">
-                        <div>
-                            <Label className="text-sm font-semibold text-zinc-800">Arrange</Label>
-                            <p className="mt-1 text-xs text-zinc-500">Drag and drop on the canvas, then refine the stack here.</p>
-                        </div>
-                        <Button type="button" variant="ghost" size="icon-sm" onClick={() => toggleSection('arrange')}>
-                            {isCollapsed('arrange') ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
-                        </Button>
+                    <div className="mt-1 flex items-center gap-2">
+                        <p className="text-sm text-zinc-500">Product Price</p>
+                        {productPrice ? (
+                            <span className="text-sm font-semibold text-zinc-900">{productPrice}</span>
+                        ) : null}
                     </div>
-                    {!isCollapsed('arrange') && (
-                        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                            <Button type="button" variant="outline" className="h-auto whitespace-normal rounded-2xl justify-start py-2 text-left leading-tight" onClick={onBringForward}>
-                                <BringToFront className="size-4" />
-                                Bring forward
-                            </Button>
-                            <Button type="button" variant="outline" className="h-auto whitespace-normal rounded-2xl justify-start py-2 text-left leading-tight" onClick={onSendBackward}>
-                                <SendToBack className="size-4" />
-                                Send backward
-                            </Button>
-                            <Button type="button" variant="outline" className="h-auto whitespace-normal rounded-2xl justify-start py-2 text-left leading-tight" onClick={onDeleteSelected}>
-                                <Trash2 className="size-4" />
-                                Delete
-                            </Button>
-                        </div>
-                    )}
+                    <div className="mt-1 flex items-center gap-2">
+                        <p className="text-sm text-zinc-500">Design Price</p>
+                        <span className="text-sm font-semibold text-zinc-900">{designPrice || '$0.00'}</span>
+                    </div>
                 </div>
 
                 <div className="mt-auto space-y-3 rounded-3xl border border-zinc-200 bg-zinc-50 p-4">
@@ -204,6 +182,15 @@ export default function CustomizePanel({
                             >
                                 +
                             </Button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-1 rounded-2xl border border-zinc-200 bg-white p-3">
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="font-semibold text-zinc-800">Order total</span>
+                            <span className="font-semibold text-zinc-900">
+                                ${((Number((designPrice || '0').replace(/[^0-9.]/g, '')) || 0) * orderQuantity).toFixed(2)}
+                            </span>
                         </div>
                     </div>
 

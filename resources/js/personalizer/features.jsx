@@ -44,6 +44,52 @@ function buildProductViewsFromPayload(payload) {
     ];
 }
 
+// Picks the price tier whose quantity range contains the selected quantity, preferring the
+// "Guest" status tier since there's no logged-in customer distinction on the storefront.
+function resolveUnitPrice(stagePrices, quantity, basePrice) {
+    if (!Array.isArray(stagePrices) || stagePrices.length === 0) return basePrice;
+
+    const matches = stagePrices.filter((row) => (
+        Number(quantity) >= Number(row.minimum_quantity)
+        && Number(quantity) <= Number(row.maximum_quantity)
+    ));
+
+    if (matches.length === 0) return basePrice;
+
+    const preferred = matches.find((row) => row.status === 'Guest') || matches[0];
+    return Number(preferred.price);
+}
+
+// Picks the personalizer-price tier whose area range (square inches) contains the given
+// component's area. If no configured tier covers it exactly (gaps or edges in admin setup),
+// falls back to the tier with the closest boundary so pricing degrades gracefully instead of
+// silently returning $0. Only returns 0 when no tiers are configured at all.
+function resolveComponentPrice(areaSqIn, tiers) {
+    if (!Array.isArray(tiers) || tiers.length === 0) return 0;
+
+    const exactMatch = tiers.find((tier) => (
+        areaSqIn >= Number(tier.minimum_size)
+        && areaSqIn <= Number(tier.maximum_size)
+    ));
+    if (exactMatch) return Number(exactMatch.price);
+
+    let closest = null;
+    let closestDistance = Infinity;
+
+    tiers.forEach((tier) => {
+        const min = Number(tier.minimum_size);
+        const max = Number(tier.maximum_size);
+        const distance = areaSqIn < min ? min - areaSqIn : areaSqIn - max;
+
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closest = tier;
+        }
+    });
+
+    return closest ? Number(closest.price) : 0;
+}
+
 async function ensureCsrfCookie() {
     await fetch('/sanctum/csrf-cookie', {
         credentials: 'include',
@@ -174,6 +220,7 @@ const PIXELS_PER_INCH = 96;
 // Real-world size of the printable area on the garment, used to calibrate on-canvas measurements.
 const PRINT_AREA_WIDTH_IN = 14;
 const PRINT_AREA_HEIGHT_IN = 8;
+const MAX_ELEMENT_AREA_SQIN = 14;
 
 function isBlobObjectUrl(url) {
     return typeof url === 'string' && url.startsWith('blob:');
@@ -186,18 +233,6 @@ function readFileAsDataUrl(file) {
         reader.onerror = () => reject(new Error('Failed to read uploaded file.'));
         reader.readAsDataURL(file);
     });
-}
-
-function snapshotHasBlobImageSource(snapshot) {
-    try {
-        const parsed = JSON.parse(snapshot);
-        const objects = parsed?.canvas?.objects;
-        if (!Array.isArray(objects)) return false;
-
-        return objects.some((object) => object?.type === 'image' && isBlobObjectUrl(object?.src));
-    } catch {
-        return true;
-    }
 }
 
 function readStoredUploadedDesigns() {
@@ -232,13 +267,22 @@ function normalizeSnapshotImageSources(snapshot) {
     objects.forEach((object) => {
         if (object?.type !== 'image') return;
 
-        const source = object.src || object.imageSource || uploadedDesignMap.get(object.designId) || '';
-        if (!source || object.src === source) return;
+        const source = object.imageSource || object.src || uploadedDesignMap.get(object.designId) || '';
+        const resolvedSource = isBlobObjectUrl(source) ? (uploadedDesignMap.get(object.designId) || '') : source;
+        if (!resolvedSource || object.src === resolvedSource) return;
 
-        object.src = source;
-        object.imageSource = source;
+        object.src = resolvedSource;
+        object.imageSource = resolvedSource;
         didChange = true;
     });
+
+    // Drop only the specific images whose blob source couldn't be recovered; keep every other
+    // object (text, shapes, other images) so a stale upload never wipes the whole design.
+    const survivingObjects = objects.filter((object) => object?.type !== 'image' || !isBlobObjectUrl(object.src));
+    if (survivingObjects.length !== objects.length) {
+        parsed.canvas.objects = survivingObjects;
+        didChange = true;
+    }
 
     return didChange ? JSON.stringify(parsed) : snapshot;
 }
@@ -298,6 +342,8 @@ export default function Features() {
     const isRestoringRef = useRef(false);
     const uploadedDesignsRef = useRef([]);
     const sizeLabelRef = useRef(null);
+    const hasInitializedRef = useRef(false);
+    const personalizerPriceTiersRef = useRef([]);
 
     const [isReady, setIsReady] = useState(false);
     const [activeTool, setActiveTool] = useState('upload');
@@ -320,9 +366,36 @@ export default function Features() {
     const [orderQuantity, setOrderQuantity] = useState(1);
     const [canUndo, setCanUndo] = useState(false);
     const [canRedo, setCanRedo] = useState(false);
+    const [personalizerPriceTiers, setPersonalizerPriceTiers] = useState([]);
+    const [designPrice, setDesignPrice] = useState(0);
+
+    useEffect(() => {
+        const controller = new AbortController();
+
+        fetch('/api/public/personalizer-prices', {
+            headers: { Accept: 'application/json' },
+            signal: controller.signal,
+        })
+            .then((response) => (response.ok ? response.json() : []))
+            .then((payload) => setPersonalizerPriceTiers(Array.isArray(payload) ? payload : []))
+            .catch((error) => {
+                if (error.name !== 'AbortError') setPersonalizerPriceTiers([]);
+            });
+
+        return () => controller.abort();
+    }, []);
+
+    useEffect(() => {
+        personalizerPriceTiersRef.current = personalizerPriceTiers;
+    }, [personalizerPriceTiers]);
 
     const productViews = productInfo?.views || DEFAULT_PRODUCT_VIEWS;
-    const productPrice = productInfo?.price || DEFAULT_PRODUCT_PRICE;
+    const productPrice = useMemo(() => {
+        if (!productInfo?.basePrice && productInfo?.basePrice !== 0) return DEFAULT_PRODUCT_PRICE;
+
+        const unitPrice = resolveUnitPrice(productInfo.stagePrices, orderQuantity, productInfo.basePrice);
+        return `$${unitPrice.toFixed(2)}`;
+    }, [productInfo, orderQuantity]);
     const productName = productInfo?.name || '';
     const productColors = productInfo?.colors?.length ? productInfo.colors : PRODUCT_COLORS;
 
@@ -346,6 +419,8 @@ export default function Features() {
                 setProductInfo({
                     name: payload.name || '',
                     price: payload.price ? `$${Number(payload.price).toFixed(2)}` : '',
+                    basePrice: Number(payload.price || 0),
+                    stagePrices: Array.isArray(payload.stage_prices) ? payload.stage_prices : [],
                     views,
                     colors,
                 });
@@ -522,7 +597,11 @@ export default function Features() {
 
         if (!width || !height) return requestedFontSize;
 
-        const ratio = Math.min(area.width / width, area.height / height, 1);
+        const { pxPerInchX, pxPerInchY } = getPxPerInch(viewId);
+        const areaSqIn = (width / pxPerInchX) * (height / pxPerInchY);
+        const areaRatio = areaSqIn > MAX_ELEMENT_AREA_SQIN ? Math.sqrt(MAX_ELEMENT_AREA_SQIN / areaSqIn) : 1;
+
+        const ratio = Math.min(area.width / width, area.height / height, areaRatio, 1);
         if (ratio >= 1) return requestedFontSize;
 
         return Math.max(6, Math.floor(requestedFontSize * ratio));
@@ -538,6 +617,62 @@ export default function Features() {
         canvas?.renderAll();
     };
 
+    const getPxPerInch = (viewId = activeViewRef.current) => {
+        const area = getDesignArea(viewId);
+        return {
+            pxPerInchX: area?.width ? area.width / PRINT_AREA_WIDTH_IN : PIXELS_PER_INCH,
+            pxPerInchY: area?.height ? area.height / PRINT_AREA_HEIGHT_IN : PIXELS_PER_INCH,
+        };
+    };
+
+    // Prices each design element (across both views) by its own area in square inches (same
+    // metric as the MAX_ELEMENT_AREA_SQIN cap), looked up against the admin-configured
+    // personalizer price tiers, then sums them for the design total.
+    const computeDesignPrice = () => {
+        const components = productViews.flatMap((view) => getViewObjects(view.id).map((object) => {
+            const widthPx = object.getScaledWidth?.() || 0;
+            const heightPx = object.getScaledHeight?.() || 0;
+            const { pxPerInchX, pxPerInchY } = getPxPerInch(view.id);
+            const widthIn = widthPx / pxPerInchX;
+            const heightIn = heightPx / pxPerInchY;
+            const areaSqIn = Number((widthIn * heightIn).toFixed(2));
+            const price = resolveComponentPrice(areaSqIn, personalizerPriceTiersRef.current);
+
+            return {
+                view: view.id,
+                type: getLayerType(object),
+                label: getLayerLabel(object),
+                area_sq_in: areaSqIn,
+                price,
+            };
+        }));
+
+        const total = components.reduce((sum, component) => sum + component.price, 0);
+
+        return { total, components };
+    };
+
+    const clampObjectAreaToLimit = (object, viewId = activeViewRef.current) => {
+        if (!object) return;
+
+        const widthPx = object.getScaledWidth?.() || 0;
+        const heightPx = object.getScaledHeight?.() || 0;
+        if (!widthPx || !heightPx) return;
+
+        const { pxPerInchX, pxPerInchY } = getPxPerInch(viewId);
+        const areaSqIn = (widthPx / pxPerInchX) * (heightPx / pxPerInchY);
+
+        if (areaSqIn <= MAX_ELEMENT_AREA_SQIN) return;
+
+        // Shrink uniformly (keeps aspect ratio) so the total area matches the limit exactly.
+        const ratio = Math.sqrt(MAX_ELEMENT_AREA_SQIN / areaSqIn);
+        object.set({
+            scaleX: (object.scaleX || 1) * ratio,
+            scaleY: (object.scaleY || 1) * ratio,
+        });
+        object.setCoords();
+    };
+
     const showSizeLabel = (object) => {
         const canvas = getCanvas();
         if (!canvas || !object || object.get?.('isBaseImage')) return;
@@ -547,9 +682,7 @@ export default function Features() {
         const heightPx = object.getScaledHeight?.() || 0;
 
         const viewId = object.get?.('viewId') || activeViewRef.current;
-        const area = getDesignArea(viewId);
-        const pxPerInchX = area?.width ? area.width / PRINT_AREA_WIDTH_IN : PIXELS_PER_INCH;
-        const pxPerInchY = area?.height ? area.height / PRINT_AREA_HEIGHT_IN : PIXELS_PER_INCH;
+        const { pxPerInchX, pxPerInchY } = getPxPerInch(viewId);
 
         const widthIn = widthPx / pxPerInchX;
         const heightIn = heightPx / pxPerInchY;
@@ -730,6 +863,7 @@ export default function Features() {
             });
 
             image.setCoords();
+            clampObjectAreaToLimit(image, layer.viewId || activeViewRef.current);
             updateImageVisibilityByArea(image, layer.viewId || activeViewRef.current);
             canvas.add(image);
             existingObjectIds.add(layer.objectId);
@@ -845,6 +979,7 @@ export default function Features() {
                 .filter(Boolean)
         );
         setUsedDesignIds(presentDesignIds);
+        setDesignPrice(computeDesignPrice().total);
     };
 
     const applyViewVisibility = (viewId) => {
@@ -1013,11 +1148,13 @@ export default function Features() {
                 } else if (action === 'scale' || action === 'scaleY') {
                     // For curved text: corner/top-bottom handles resize the text.
                     normalizeCurvedTextScale(target, action);
+                    target.set({ fontSize: getFittedFontSize(target, target.fontSize, target.get?.('viewId') || activeViewRef.current) });
                     applyCurvedText(target);
                 }
             }
 
             if (target.get?.('layerType') === 'image') {
+                clampObjectAreaToLimit(target);
                 updateImageVisibilityByArea(target);
             } else {
                 let shouldFit = action === 'scale' || action === 'scaleX' || action === 'scaleY';
@@ -1025,6 +1162,13 @@ export default function Features() {
                 // Keep text sizing under user control; do not auto-shrink while resizing.
                 if (isTextObject(target)) {
                     shouldFit = false;
+
+                    // Plain (non-curved) text resizes via scale, so cap it like any other object.
+                    if (target.get?.('curveEnabled') !== true && (action === 'scale' || action === 'scaleX' || action === 'scaleY')) {
+                        clampObjectAreaToLimit(target);
+                    }
+                } else if (target.get?.('layerType') === 'shape' && (action === 'scale' || action === 'scaleX' || action === 'scaleY')) {
+                    clampObjectAreaToLimit(target);
                 }
 
                 clampObjectToArea(target, { shouldFit });
@@ -1042,21 +1186,30 @@ export default function Features() {
             const activeObject = event?.target || canvas.getActiveObject();
             if (activeObject) {
                 if (activeObject.get?.('layerType') === 'image') {
+                    clampObjectAreaToLimit(activeObject);
                     updateImageVisibilityByArea(activeObject);
                 } else {
+                    const action = event?.transform?.action;
+
                     if (isTextObject(activeObject) && activeObject.get?.('curveEnabled') === true) {
-                        const action = event?.transform?.action;
                         if (action === 'scale' || action === 'scaleY') {
                             normalizeCurvedTextScale(activeObject, action);
+                            activeObject.set({ fontSize: getFittedFontSize(activeObject, activeObject.fontSize, activeObject.get?.('viewId') || activeViewRef.current) });
                         }
                         applyCurvedText(activeObject);
                     }
-                    const action = event?.transform?.action;
+
                     let shouldFit = action === 'scale' || action === 'scaleX' || action === 'scaleY';
 
                     if (isTextObject(activeObject)) {
+                        if (activeObject.get?.('curveEnabled') !== true && (action === 'scale' || action === 'scaleX' || action === 'scaleY')) {
+                            clampObjectAreaToLimit(activeObject);
+                        }
+
                         // Enforce fit once the resize ends so text never remains outside design bounds.
                         shouldFit = shouldFit || !isObjectInsideArea(activeObject);
+                    } else if (activeObject.get?.('layerType') === 'shape' && (action === 'scale' || action === 'scaleX' || action === 'scaleY')) {
+                        clampObjectAreaToLimit(activeObject);
                     }
 
                     clampObjectToArea(activeObject, { shouldFit });
@@ -1090,16 +1243,20 @@ export default function Features() {
     }, []);
 
     useEffect(() => {
-        if (!isReady) return;
+        // Wait for product data to resolve (if any) before doing the one-time initial load, so we
+        // never briefly load placeholder views then swap to the real ones mid-session.
+        if (!isReady || isProductLoading || hasInitializedRef.current) return;
+        hasInitializedRef.current = true;
 
         const initialize = async () => {
             const persistedSnapshot = localStorage.getItem(CANVAS_DRAFT_STORAGE_KEY);
 
-            if (persistedSnapshot && !snapshotHasBlobImageSource(persistedSnapshot)) {
+            if (persistedSnapshot) {
                 try {
-                    historyRef.current = [persistedSnapshot];
+                    const normalizedSnapshot = normalizeSnapshotImageSources(persistedSnapshot);
+                    historyRef.current = [normalizedSnapshot];
                     redoRef.current = [];
-                    await restoreHistorySnapshot(persistedSnapshot);
+                    await restoreHistorySnapshot(normalizedSnapshot);
                     return;
                 } catch {
                     localStorage.removeItem(CANVAS_DRAFT_STORAGE_KEY);
@@ -1312,6 +1469,7 @@ export default function Features() {
     clampObjectToArea(image, {
         shouldFit: true,
     });
+    clampObjectAreaToLimit(image, placement?.viewId || activeViewRef.current);
     updateImageVisibilityByArea(image);
 
     canvas.add(image);
@@ -1473,7 +1631,9 @@ export default function Features() {
             curveAmount: 0,
         });
 
-        clampObjectToArea(textObject, { shouldFit: true });
+        textObject.set({ fontSize: getFittedFontSize(textObject, draftFontSize, activeViewRef.current) });
+
+        clampObjectToArea(textObject, { shouldFit: false });
 
         canvas.add(textObject);
         canvas.setActiveObject(textObject);
@@ -1526,6 +1686,7 @@ export default function Features() {
         }
 
         clampObjectToArea(shape, { shouldFit: true });
+        clampObjectAreaToLimit(shape, activeViewRef.current);
 
         canvas.add(shape);
         canvas.setActiveObject(shape);
@@ -1547,6 +1708,7 @@ export default function Features() {
             layerName: object.get?.('layerName') || getLayerLabel(object),
         });
 
+        clampObjectAreaToLimit(object, object.get?.('viewId') || activeViewRef.current);
         clampObjectToArea(object, { shouldFit: true });
 
         canvas.renderAll();
@@ -1853,7 +2015,7 @@ export default function Features() {
                 multiplier: 2,
             });
 
-            const unitPriceNumber = Number((productPrice || '').replace(/[^0-9.]/g, '')) || 0;
+            const unitPriceNumber = computeDesignPrice().total;
             const totalPrice = unitPriceNumber * orderQuantity;
 
             const response = await fetch('/api/personalizations', {
@@ -1876,6 +2038,7 @@ export default function Features() {
                     meta: {
                         product_color: productColor,
                         active_view: activeViewRef.current,
+                        component_prices: computeDesignPrice().components,
                         image_layers: productViews.flatMap((view) =>
                             getViewObjects(view.id)
                                 .filter((obj) => obj.get?.('layerType') === 'image' || obj.type === 'image')
@@ -1924,7 +2087,7 @@ export default function Features() {
                 cachedFrontImageUrl: frontImageData || imageData || '',
                 cachedBackImageUrl: backImageData || '',
                 quantity: orderQuantity,
-                unitPrice: productPrice,
+                unitPrice: `$${unitPriceNumber.toFixed(2)}`,
                 totalPrice: `$${totalPrice.toFixed(2)}`,
                 orderStatus: data?.data?.order_status || 'pending',
                 productColor,
@@ -2011,10 +2174,6 @@ export default function Features() {
         }
 
         setActiveTool(toolId);
-
-        if (toolId === 'images') {
-            fileInputRef.current?.click();
-        }
     };
 
     const selectedColor = productColors.find((color) => color.id === productColor) || productColors[0];
@@ -2072,6 +2231,8 @@ export default function Features() {
                             activeShapeLayers={activeShapeLayers}
                             onUpdateShapeLayer={updateShapeLayer}
                             onAddShape={addShape}
+                            onBringForward={handleBringForward}
+                            onSendBackward={handleSendBackward}
                         />
                     </div>
 
@@ -2089,6 +2250,8 @@ export default function Features() {
                         <CustomizePanel
                             activeTool={activeTool}
                             productName={productName}
+                            productPrice={productPrice}
+                            designPrice={`$${designPrice.toFixed(2)}`}
                             selectedColor={selectedColor}
                             productColors={productColors}
                             productColor={productColor}

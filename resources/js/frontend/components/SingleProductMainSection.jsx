@@ -8,6 +8,8 @@ import SingleProductMediaGallery from './SingleProductMediaGallery.jsx';
 const product = {
     name: 'Corporate Full Sleeve T-Shirt',
     price: '$16.95',
+    basePrice: 16.95,
+    stagePrices: [],
     description:
         'Designed for comfort and professionalism, the Corporate Full Sleeve T-shirt combines premium fabric with a clean modern fit.',
     colors: [
@@ -60,6 +62,22 @@ function toPlainText(value) {
     return new DOMParser().parseFromString(String(value), 'text/html').body.textContent?.trim() || '';
 }
 
+// Picks the price tier whose quantity range contains the selected quantity, preferring the
+// "Guest" status tier since the storefront has no logged-in customer accounts.
+function resolveUnitPrice(stagePrices, quantity, basePrice) {
+    if (!Array.isArray(stagePrices) || stagePrices.length === 0) return basePrice;
+
+    const matches = stagePrices.filter((row) => (
+        Number(quantity) >= Number(row.minimum_quantity)
+        && Number(quantity) <= Number(row.maximum_quantity)
+    ));
+
+    if (matches.length === 0) return basePrice;
+
+    const preferred = matches.find((row) => row.status === 'Guest') || matches[0];
+    return Number(preferred.price);
+}
+
 function normalizeProduct(payload, colorOptions, sizeOptions) {
     const rawColors = asList(payload.color);
     const rawSizes = asList(payload.size);
@@ -70,6 +88,8 @@ function normalizeProduct(payload, colorOptions, sizeOptions) {
 
     return {
         ...payload,
+        basePrice: Number(payload.price || 0),
+        stagePrices: Array.isArray(payload.stage_prices) ? payload.stage_prices : [],
         price: `$${Number(payload.price || 0).toFixed(2)}`,
         description: toPlainText(payload.description || payload.long_description),
         colors: rawColors.map((color) => {
@@ -149,6 +169,16 @@ export default function SingleProductMainSection() {
         [productSlug, resolvedProduct.name]
     );
 
+    const unitPrice = useMemo(
+        () => resolveUnitPrice(resolvedProduct.stagePrices, quantity, resolvedProduct.basePrice ?? 0),
+        [resolvedProduct.stagePrices, resolvedProduct.basePrice, quantity]
+    );
+
+    const displayProduct = useMemo(
+        () => ({ ...resolvedProduct, price: `$${unitPrice.toFixed(2)}` }),
+        [resolvedProduct, unitPrice]
+    );
+
     function decreaseQuantity() {
         setQuantity((previous) => Math.max(1, previous - 1));
     }
@@ -164,7 +194,7 @@ export default function SingleProductMainSection() {
             id: `${safeProductId || resolvedProduct.name}-${selectedColor}-${selectedSize}`,
             productId: safeProductId,
             name: resolvedProduct.name,
-            price: resolvedProduct.price,
+            price: `$${unitPrice.toFixed(2)}`,
             color: selectedColor,
             size: selectedSize,
             quantity,
@@ -247,7 +277,7 @@ export default function SingleProductMainSection() {
                     </div>
 
                     <SingleProductDetailsPanel
-                        product={resolvedProduct}
+                        product={displayProduct}
                         productSlug={productSlug}
                         selectedColor={selectedColor}
                         onSelectColor={setSelectedColor}

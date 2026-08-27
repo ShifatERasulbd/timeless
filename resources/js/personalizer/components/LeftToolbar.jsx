@@ -1,13 +1,15 @@
 import { useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
+    ArrowUpDown,
     Check,
     Circle as CircleIcon,
-    ImagePlus,
+    BringToFront,
     Italic,
     Palette,
     RotateCcw,
     RotateCw,
+    SendToBack,
     Shapes,
     Square,
     Star as StarIcon,
@@ -24,7 +26,7 @@ const TOOL_ITEMS = [
     { id: 'upload', label: 'Upload', icon: Upload, hasDrawer: true },
     { id: 'color', label: 'Color', icon: Palette, hasDrawer: true },
     { id: 'text', label: 'Text', icon: Type, hasDrawer: true },
-    { id: 'images', label: 'Images', icon: ImagePlus },
+    { id: 'arrange', label: 'Arrange', icon: ArrowUpDown, hasDrawer: true },
     { id: 'shapes', label: 'Shapes', icon: Shapes, hasDrawer: true },
     { id: 'undo', label: 'Undo', icon: RotateCcw, action: true },
     { id: 'redo', label: 'Redo', icon: RotateCw, action: true },
@@ -113,6 +115,8 @@ export default function LeftToolbar({
     activeShapeLayers = [],
     onUpdateShapeLayer,
     onAddShape,
+    onBringForward,
+    onSendBackward,
 }) {
     const buttonRefs = useRef({});
     const [openDrawer, setOpenDrawer] = useState(null);
@@ -548,6 +552,40 @@ export default function LeftToolbar({
                             ))}
                         </div>
                     )}
+                </ToolDrawer>
+            )}
+
+            {openDrawer === 'arrange' && (
+                <ToolDrawer coords={drawerCoords} onClose={hideDrawer}>
+                    <p className="pr-6 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">Arrange</p>
+                    <p className="mt-1 text-xs text-zinc-500">Select an object on the canvas, then refine the stack here.</p>
+
+                    <div className="mt-3 grid grid-cols-1 gap-2">
+                        <button
+                            type="button"
+                            onClick={() => onBringForward?.()}
+                            className="flex h-10 items-center justify-center gap-2 rounded-xl border border-zinc-200 text-sm font-medium text-zinc-700 transition-colors hover:border-zinc-400 hover:text-zinc-900"
+                        >
+                            <BringToFront className="size-4" />
+                            Bring forward
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onSendBackward?.()}
+                            className="flex h-10 items-center justify-center gap-2 rounded-xl border border-zinc-200 text-sm font-medium text-zinc-700 transition-colors hover:border-zinc-400 hover:text-zinc-900"
+                        >
+                            <SendToBack className="size-4" />
+                            Send backward
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => onDeleteSelected?.()}
+                            className="flex h-10 items-center justify-center gap-2 rounded-xl border border-zinc-200 text-sm font-medium text-red-600 transition-colors hover:border-red-300 hover:bg-red-50"
+                        >
+                            <Trash2 className="size-4" />
+                            Delete
+                        </button>
+                    </div>
                 </ToolDrawer>
             )}
         </aside>

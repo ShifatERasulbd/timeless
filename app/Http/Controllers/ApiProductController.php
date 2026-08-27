@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Color;
 use App\Models\Product;
+use App\Models\Stage;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Http;
@@ -350,6 +351,7 @@ class ApiProductController extends Controller
             'additional_information' => $product->additional_information,
             'price' => $product->price,
             'selling_price' => $product->price,
+            'stage_prices' => $this->buildStagePrices($product->stage_prices ?? []),
             'cover_image' => $product->cover_image,
             'cover_image_url' => $product->cover_image,
             'image_gallery' => $product->image_gallery ?? [],
@@ -366,6 +368,41 @@ class ApiProductController extends Controller
             'created_at' => $product->created_at,
             'updated_at' => $product->updated_at,
         ];
+    }
+
+    /**
+     * Resolve stage_id references into full stage ranges so the storefront can pick the
+     * matching price tier for the quantity the customer selects.
+     */
+    private function buildStagePrices(array $rawStagePrices): array
+    {
+        $stageIds = array_values(array_unique(array_filter(
+            array_map(fn ($row) => $row['stage_id'] ?? null, $rawStagePrices)
+        )));
+
+        if ($stageIds === []) {
+            return [];
+        }
+
+        $stages = Stage::query()->whereIn('id', $stageIds)->get()->keyBy('id');
+
+        $result = [];
+        foreach ($rawStagePrices as $row) {
+            $stage = $stages->get($row['stage_id'] ?? null);
+            if (! $stage) {
+                continue;
+            }
+
+            $result[] = [
+                'stage_id' => $stage->id,
+                'minimum_quantity' => (int) $stage->minimum_quantity,
+                'maximum_quantity' => (int) $stage->maximum_quantity,
+                'status' => $row['status'] ?? 'Guest',
+                'price' => (float) ($row['price'] ?? 0),
+            ];
+        }
+
+        return $result;
     }
 
     private function decodeJsonList(mixed $value): array|string|null
