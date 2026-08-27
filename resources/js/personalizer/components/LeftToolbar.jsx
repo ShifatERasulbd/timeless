@@ -529,6 +529,9 @@ export default function LeftToolbar({
                                     >
                                         <span className="truncate text-xs font-medium text-zinc-700">{layer.label}</span>
                                     </button>
+                                    <span className="shrink-0 text-xs font-semibold text-zinc-900">
+                                        ${Number(layer.price || 0).toFixed(2)}
+                                    </span>
                                     <input
                                         type="color"
                                         key={`toolbar-shape-layer-color-${layer.id}`}

@@ -10,12 +10,7 @@ export default function PageHeader({ isSaving, onSaveDesign, onShare, productNam
                 <span>Back to shop</span>
             </a>
 
-            {productName ? (
-                <div className="flex items-baseline gap-2 text-sm text-zinc-700">
-                    <span className="font-semibold text-zinc-950">{productName}</span>
-                    {productPrice ? <span className="text-zinc-500">{productPrice}</span> : null}
-                </div>
-            ) : null}
+           
 
             <div className="flex items-center gap-2">
                 <Button type="button" variant="outline" onClick={onSaveDesign} disabled={isSaving}>

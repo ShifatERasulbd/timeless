@@ -944,6 +944,7 @@ export default function Features() {
 
         const activeObjectId = canvas.getActiveObject()?.get?.('objectId') || null;
         const designArea = getDesignArea(viewId);
+        const { pxPerInchX, pxPerInchY } = getPxPerInch(viewId);
 
         const nextLayers = getViewObjects(viewId)
             .slice()
@@ -955,6 +956,10 @@ export default function Features() {
                 const scaleY = Number(object.scaleY || 1);
                 const baseWidth = Number(object.width || 0);
                 const baseHeight = Number(object.height || 0);
+                const areaSqIn = Number((
+                    ((object.getScaledWidth?.() || 0) / pxPerInchX)
+                    * ((object.getScaledHeight?.() || 0) / pxPerInchY)
+                ).toFixed(2));
 
                 return {
                     id: object.get?.('objectId'),
@@ -984,6 +989,8 @@ export default function Features() {
                     scalePercent: Number((((scaleX + scaleY) / 2) * 100).toFixed(2)),
                     width: Number((baseWidth * scaleX).toFixed(2)),
                     height: Number((baseHeight * scaleY).toFixed(2)),
+                    areaSqIn,
+                    price: resolveComponentPrice(areaSqIn, personalizerPriceTiersRef.current),
                 };
             });
 
@@ -2035,7 +2042,8 @@ export default function Features() {
                 multiplier: 2,
             });
 
-            const unitPriceNumber = computeDesignPrice().total;
+            const productPriceNumber = Number((productPrice || '').replace(/[^0-9.]/g, '')) || 0;
+            const unitPriceNumber = productPriceNumber + computeDesignPrice().total;
             const totalPrice = unitPriceNumber * orderQuantity;
 
             const response = await fetch('/api/personalizations', {

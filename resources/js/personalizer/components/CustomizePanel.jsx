@@ -199,7 +199,11 @@ export default function CustomizePanel({
                         <div className="flex items-center justify-between text-sm">
                             <span className="font-semibold text-zinc-800">Order total</span>
                             <span className="font-semibold text-zinc-900">
-                                ${((Number((designPrice || '0').replace(/[^0-9.]/g, '')) || 0) * orderQuantity).toFixed(2)}
+                                ${(
+                                    ((Number((productPrice || '0').replace(/[^0-9.]/g, '')) || 0)
+                                        + (Number((designPrice || '0').replace(/[^0-9.]/g, '')) || 0))
+                                    * orderQuantity
+                                ).toFixed(2)}
                             </span>
                         </div>
                     </div>
