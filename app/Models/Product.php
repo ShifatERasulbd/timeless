@@ -24,8 +24,7 @@ class Product extends Model
         'product_composition',
         'long_description',
         'additional_information',
-        'price',
-        'discount_price',
+       
         'stage_prices',
         'length',
         'width',
@@ -61,7 +60,7 @@ class Product extends Model
             'color_variant_images' => 'array',
             'color_variant_videos' => 'array',
             'color_variant_size_charts' => 'array',
-            'price' => 'decimal:2',
+         
             'stock' => 'integer',
             'position' => 'integer',
             'show_on_best_sellers' => 'boolean',

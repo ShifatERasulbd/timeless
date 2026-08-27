@@ -47,8 +47,7 @@ class ProductController extends Controller
             'product_composition',
             'long_description',
             'additional_information',
-            'price',
-            'discount_price',
+         
             'stage_prices',
             'cover_image',
             'size_chart_image',
@@ -118,8 +117,7 @@ class ProductController extends Controller
             'product_composition',
             'long_description',
             'additional_information',
-            'price',
-            'discount_price',
+            
             'stage_prices',
             'cover_image',
             'size_chart_image',
@@ -167,8 +165,7 @@ class ProductController extends Controller
             'product_composition',
             'long_description',
             'additional_information',
-            'price',
-            'discount_price',
+         
             'stage_prices',
             'cover_image',
             'size_chart_image',
@@ -236,7 +233,7 @@ class ProductController extends Controller
             'product_composition' => 'nullable|string',
             'long_description' => 'nullable|string',
             'additional_information' => 'nullable|string',
-            'price' => 'required|numeric',
+            
             'stage_prices' => 'nullable|array',
             'stage_prices.*.stage_id' => 'required|integer|exists:statges,id',
             'stage_prices.*.status' => ['required', 'string', Rule::in(['User', 'Guest'])],
@@ -395,8 +392,7 @@ class ProductController extends Controller
             'product_composition' => 'nullable|string',
             'long_description' => 'nullable|string',
             'additional_information' => 'nullable|string',
-            'price' => 'required|numeric',
-            'discount_price' => 'nullable|numeric',
+            
             'stage_prices' => 'nullable|array',
             'stage_prices.*.stage_id' => 'required|integer|exists:statges,id',
             'stage_prices.*.status' => ['required', 'string', Rule::in(['User', 'Guest'])],

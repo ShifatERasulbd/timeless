@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-
+import { useNavigate } from 'react-router-dom';
 import SectionSkeleton from '../components/SectionSkeleton.jsx';
 
 const SingleProductMainSection = lazy(() => import('../components/SingleProductMainSection.jsx'));

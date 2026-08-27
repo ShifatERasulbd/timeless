@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { featuresFontClass } from '../../utils/typography';
@@ -18,45 +18,6 @@ const product = {
     sizes: ['XS', 'S', 'M', 'L', 'XL'],
 };
 
-const productOverrides = {
-    1: {
-        name: 'REGULAR COVERALL',
-        price: '$95.00',
-        description:
-            'Built for durability and comfort, this regular coverall is made for demanding work environments and all-day wear.',
-    },
-    2: {
-        name: 'CORPORATE POLO T-SHIRT',
-        price: '$54.00',
-        description:
-            'A polished polo crafted for team identity and daily comfort, ideal for branded corporate uniforms.',
-    },
-    3: {
-        name: 'FR WORK SHIRT',
-        price: '$56.00',
-        description:
-            'Designed for safer performance on the job, this FR shirt balances protection, mobility, and professional styling.',
-    },
-    4: {
-        name: 'BASIC BIB APRON',
-        price: '$56.00',
-        description:
-            'A practical bib apron offering reliable coverage and a clean fit for hospitality and service teams.',
-    },
-    5: {
-        name: 'CLASSIC TEAM HOODIE',
-        price: '$72.00',
-        description:
-            'Soft, warm, and ready for daily use, this team hoodie is ideal for casual uniforms and active crews.',
-    },
-    6: {
-        name: 'ATHLETIC TEAM JERSEY',
-        price: '$60.00',
-        description:
-            'Lightweight and breathable, this athletic jersey supports movement while keeping branding front and center.',
-    },
-};
-
 const productImages = [
     '/uploads/heroes/images/hero1.webp',
     '/uploads/heroes/images/hero1.webp',
@@ -66,11 +27,75 @@ const productImages = [
     '/uploads/heroes/images/hero1.webp',
 ];
 
+const namedColors = {
+    black: '#111111',
+    white: '#ffffff',
+    navy: '#1f2d49',
+    red: '#b52a2f',
+    grey: '#9ca3af',
+    gray: '#9ca3af',
+    blue: '#315f91',
+    green: '#526c55',
+};
+
+function normalizeImageUrl(image) {
+    if (!image) return null;
+    if (/^https?:\/\//i.test(image)) {
+        const imageUrl = new URL(image);
+        if (['localhost', '127.0.0.1'].includes(imageUrl.hostname)) {
+            return `${imageUrl.pathname}${imageUrl.search}`;
+        }
+        return image;
+    }
+    return image.startsWith('/') ? image : `/${image}`;
+}
+
+function asList(value) {
+    if (Array.isArray(value)) return value;
+    return value === null || value === undefined || value === '' ? [] : [value];
+}
+
+function toPlainText(value) {
+    if (!value) return '';
+    return new DOMParser().parseFromString(String(value), 'text/html').body.textContent?.trim() || '';
+}
+
+function normalizeProduct(payload, colorOptions, sizeOptions) {
+    const rawColors = asList(payload.color);
+    const rawSizes = asList(payload.size);
+    const gallery = Array.isArray(payload.image_gallery) ? payload.image_gallery : [];
+    const images = [payload.cover_image_url, ...gallery]
+        .map(normalizeImageUrl)
+        .filter((image, index, allImages) => image && allImages.indexOf(image) === index);
+
+    return {
+        ...payload,
+        price: `$${Number(payload.price || 0).toFixed(2)}`,
+        description: toPlainText(payload.description || payload.long_description),
+        colors: rawColors.map((color) => {
+            const option = colorOptions.find((item) => String(item.id) === String(color));
+            const label = option?.name || String(color);
+            return {
+                label,
+                value: option?.color_code || (label.startsWith('#')
+                    ? label
+                    : namedColors[label.toLowerCase()] || '#707070'),
+            };
+        }),
+        sizes: rawSizes.map((size) => {
+            const option = sizeOptions.find((item) => String(item.id) === String(size));
+            return String(option?.Size || option?.size || size);
+        }),
+        images: images.length ? images : productImages,
+    };
+}
+
 export default function SingleProductMainSection() {
-    const { productId } = useParams();
+    const { productSlug } = useParams();
     const navigate = useNavigate();
-    const routeProduct = productId ? productOverrides[Number(productId)] : null;
-    const resolvedProduct = routeProduct ? { ...product, ...routeProduct } : product;
+    const [resolvedProduct, setResolvedProduct] = useState({ ...product, images: productImages });
+    const [isLoading, setIsLoading] = useState(Boolean(productSlug));
+    const [loadError, setLoadError] = useState('');
 
     const [selectedImage, setSelectedImage] = useState(productImages[0]);
     const [selectedColor, setSelectedColor] = useState(resolvedProduct.colors[0].label);
@@ -78,16 +103,50 @@ export default function SingleProductMainSection() {
     const [quantity, setQuantity] = useState(1);
     const [cartNotice, setCartNotice] = useState('');
 
+    useEffect(() => {
+        if (!productSlug) return undefined;
+
+        const controller = new AbortController();
+        setIsLoading(true);
+        setLoadError('');
+
+        const requestOptions = { headers: { Accept: 'application/json' }, signal: controller.signal };
+        const fetchOptions = (url) => fetch(url, requestOptions)
+            .then((response) => response.ok ? response.json() : []);
+
+        Promise.all([
+            fetch(`/api/public/products/${encodeURIComponent(productSlug)}`, requestOptions)
+                .then((response) => response.ok ? response.json() : Promise.reject(new Error('Product not found.'))),
+            fetchOptions('/public/colors'),
+            fetchOptions('/public/sizes'),
+        ])
+            .then(([payload, colorOptions, sizeOptions]) => {
+                const nextProduct = normalizeProduct(payload, colorOptions, sizeOptions);
+                setResolvedProduct(nextProduct);
+                setSelectedImage(nextProduct.images[0]);
+                setSelectedColor(nextProduct.colors[0]?.label || '');
+                setSelectedSize(nextProduct.sizes[0] || '');
+            })
+            .catch((error) => {
+                if (error.name !== 'AbortError') setLoadError(error.message || 'Unable to load this product.');
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) setIsLoading(false);
+            });
+
+        return () => controller.abort();
+    }, [productSlug]);
+
     const breadcrumbs = useMemo(
         () => [
             { label: 'Home', to: '/' },
             { label: 'Shop', to: '/shop' },
             {
                 label: resolvedProduct.name,
-                to: productId ? `/singleProduct/${productId}` : '/singleProduct',
+                to: productSlug ? `/singleProduct/${productSlug}` : '/singleProduct',
             },
         ],
-        [productId, resolvedProduct.name]
+        [productSlug, resolvedProduct.name]
     );
 
     function decreaseQuantity() {
@@ -99,7 +158,7 @@ export default function SingleProductMainSection() {
     }
 
     function buildCartItem() {
-        const safeProductId = Number(productId) || 0;
+        const safeProductId = Number(resolvedProduct.id) || 0;
 
         return {
             id: `${safeProductId || resolvedProduct.name}-${selectedColor}-${selectedSize}`,
@@ -155,6 +214,14 @@ export default function SingleProductMainSection() {
         }
     }
 
+    if (isLoading) {
+        return <section className="min-h-[680px] bg-white px-5 py-16 text-center text-zinc-500">Loading product...</section>;
+    }
+
+    if (loadError) {
+        return <section className="min-h-[680px] bg-white px-5 py-16 text-center text-zinc-700">{loadError}</section>;
+    }
+
     return (
         <section className={`${featuresFontClass} bg-white px-5 py-8 sm:px-8 lg:px-12 lg:py-10`}>
             <div className="mx-auto w-full max-w-[1700px]">
@@ -172,14 +239,16 @@ export default function SingleProductMainSection() {
                 <div className="grid items-start gap-10 lg:grid-cols-[1fr_1.1fr] lg:gap-14">
                     <div className="self-start">
                         <SingleProductMediaGallery
-                            images={productImages}
+                            images={resolvedProduct.images}
                             selectedImage={selectedImage}
                             onSelectImage={setSelectedImage}
+                            productName={resolvedProduct.name}
                         />
                     </div>
 
                     <SingleProductDetailsPanel
                         product={resolvedProduct}
+                        productSlug={productSlug}
                         selectedColor={selectedColor}
                         onSelectColor={setSelectedColor}
                         selectedSize={selectedSize}

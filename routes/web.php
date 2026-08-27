@@ -30,9 +30,9 @@ Route::get('/singleProduct', function () {
     return view('home');
 });
 
-Route::get('/singleProduct/{productId}', function () {
+Route::get('/singleProduct/{productSlug}', function () {
     return view('home');
-})->whereNumber('productId');
+});
 
 Route::get('/cart', function () {
     return view('home');
@@ -76,6 +76,7 @@ Route::prefix('api')->group(function () {
     Route::get('/public/shop-by-product', [ShopByProductController::class, 'publicShow']);
     Route::get('/public/shop-by-industry', [ShopByIndustryController::class, 'publicShow']);
     Route::get('/public/products', [ApiProductController::class, 'index']);
+    Route::get('/public/products/{product:slug}', [ApiProductController::class, 'show']);
     Route::get('/public/customize-home-page', [\App\Http\Controllers\CustomizeHomeController::class, 'publicShow']);
     Route::get('/public/about-page', [AboutPageSectionController::class, 'publicIndex']);
     Route::post('/personalizations', [PersonalizationController::class, 'store']);

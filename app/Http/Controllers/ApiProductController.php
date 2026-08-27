@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Color;
 use App\Models\Product;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
@@ -30,6 +31,11 @@ class ApiProductController extends Controller
             ->map(fn (Product $product): array => $this->formatProduct($product));
 
         return response()->json($products);
+    }
+
+    public function show(Product $product): JsonResponse
+    {
+        return response()->json($this->formatProduct($product));
     }
 
     public function sync(): JsonResponse
@@ -323,21 +329,36 @@ class ApiProductController extends Controller
             'product_id' => $product->id,
             'name' => $product->name,
             'product_name' => $product->name,
+            'slug' => $product->slug,
             'sku' => $product->sku,
             'available_products' => $product->available_products,
             'barcode' => $product->barcode,
             'color' => $color,
             'color_variant' => $this->buildPrimaryColorVariant($color),
+            'colors' => $this->buildColorOptions($color),
             'size' => $size,
             'size_variants' => is_array($product->available_products['size_variants'] ?? null)
                 ? array_values(array_filter($product->available_products['size_variants']))
                 : ($size !== null ? [$size] : []),
             'size_variant' => $this->buildPrimarySizeVariant($size),
             'description' => $product->description,
+            'long_description' => $product->long_description,
+            'fit' => $product->fit,
+            'fabric_and_care' => $product->fabric_and_care,
+            'product_features' => $product->product_features ?? [],
+            'product_composition' => $product->product_composition,
+            'additional_information' => $product->additional_information,
             'price' => $product->price,
             'selling_price' => $product->price,
             'cover_image' => $product->cover_image,
             'cover_image_url' => $product->cover_image,
+            'image_gallery' => $product->image_gallery ?? [],
+            'size_chart_image' => $product->size_chart_image,
+            'size_chart_images' => $product->size_chart_images ?? [],
+            'variant_rows' => $product->variant_rows ?? [],
+            'color_variant_images' => $product->color_variant_images ?? [],
+            'color_variant_videos' => $product->color_variant_videos ?? [],
+            'color_variant_size_charts' => $product->color_variant_size_charts ?? [],
             'stock' => $product->stock,
             'stocks' => $product->stock,
             'warehouse_name' => $warehouseName,
@@ -367,27 +388,61 @@ class ApiProductController extends Controller
             return array_values(array_filter($decoded, fn ($item) => is_scalar($item) && trim((string) $item) !== ''));
         }
 
+        if (str_contains($trimmed, ',')) {
+            $parts = array_values(array_filter(array_map(
+                fn ($item) => trim(trim((string) $item), "\"' "),
+                explode(',', $trimmed)
+            ), fn ($item) => $item !== ''));
+
+            if ($parts !== []) {
+                return $parts;
+            }
+        }
+
         return $trimmed;
     }
 
     private function buildPrimaryColorVariant(array|string|null $color): ?array
     {
-        if (! is_array($color) || empty($color)) {
-            return is_string($color) && $color !== '' ? [
-                'name' => $color,
-                'color_code' => $this->resolveColorCode($color),
-            ] : null;
-        }
-
-        $first = $color[0] ?? null;
-        if (! is_string($first) || $first === '') {
+        $options = $this->buildColorOptions($color);
+        if ($options === []) {
             return null;
         }
 
         return [
-            'name' => $first,
-            'color_code' => $this->resolveColorCode($first),
+            'name' => $options[0]['label'],
+            'color_code' => $options[0]['value'],
         ];
+    }
+
+    private function buildColorOptions(array|string|null $color): array
+    {
+        $tokens = is_array($color) ? $color : (is_string($color) && $color !== '' ? [$color] : []);
+        $tokens = array_values(array_filter($tokens, fn ($token) => is_string($token) && trim($token) !== ''));
+
+        if ($tokens === []) {
+            return [];
+        }
+
+        $numericIds = array_values(array_unique(array_filter($tokens, fn ($token) => ctype_digit($token))));
+        $colorsById = $numericIds !== []
+            ? Color::query()->whereIn('id', $numericIds)->get()->keyBy(fn (Color $color) => (string) $color->id)
+            : collect();
+
+        return collect($tokens)
+            ->unique(fn ($token) => strtolower(trim($token)))
+            ->values()
+            ->map(function (string $token) use ($colorsById) {
+                $match = $colorsById->get($token);
+                $name = $match?->name ?? $token;
+
+                return [
+                    'id' => Str::slug($name) ?: $token,
+                    'label' => $name,
+                    'value' => $match?->color_code ?? $this->resolveColorCode($name) ?? '#cccccc',
+                ];
+            })
+            ->all();
     }
 
     private function buildPrimarySizeVariant(array|string|null $size): ?array

@@ -25,9 +25,7 @@ const initialForm = {
     product_features: [],
     product_composition: '',
     long_description: '',
-    additional_information: '',
-    price: '',
-    discount_price: '',
+    additional_information: '',    
     stage_prices: [],
     length: '',
     width: '',
@@ -448,8 +446,7 @@ export default function EditProduct() {
                         product_composition: data?.product_composition || '',
                         long_description: data?.long_description || '',
                         additional_information: data?.additional_information || '',
-                        price: data?.price ?? '',
-                        discount_price: data?.discount_price ?? '',
+                       
                         stage_prices: Array.isArray(data?.stage_prices) ? data.stage_prices : [],
                         length: data?.length ?? '',
                         width: data?.width ?? '',
@@ -561,7 +558,7 @@ export default function EditProduct() {
                             color: data?.color || '',
                             size: data?.size || '',
                             stock: data?.stock ?? '',
-                            price: data?.price ?? '',
+                            
                             show_on_best_sellers: Boolean(data?.show_on_best_sellers),
                         };
 
@@ -745,7 +742,7 @@ export default function EditProduct() {
 
             return next;
         });
-    }, [selectedColors, selectedSizes, form.sku, form.stock, form.price, isGroupEdit, colorLabelById, sizeLabelById, colorTrendingMap, colorFabricMap]);
+    }, [selectedColors, selectedSizes, form.sku, form.stock, isGroupEdit, colorLabelById, sizeLabelById, colorTrendingMap, colorFabricMap]);
 
     useEffect(() => {
         const validValues = new Set(galleryPreviewItems.map((item) => item.value));
@@ -1140,10 +1137,7 @@ export default function EditProduct() {
             return;
         }
 
-        if (form.price === '' || Number.isNaN(Number(form.price))) {
-            setErrors({ price: ['The price field is required.'] });
-            return;
-        }
+      
 
         if (form.stock === '' || Number.isNaN(Number(form.stock))) {
             setErrors({ stock: ['The stock field is required.'] });

@@ -26,8 +26,7 @@ const initialForm = {
     product_composition: '',
     long_description: '',
     additional_information: '',
-    price: '',
-    discount_price: '',
+    
     stage_prices: [],
     cover_image: '',
     size_chart_image: '',
@@ -49,9 +48,7 @@ function validateForm(form) {
         errors.sku = ['The SKU field is required.'];
     }
 
-    if (form.price === '' || Number.isNaN(Number(form.price))) {
-        errors.price = ['The price field is required.'];
-    }
+   
 
     if (form.stock === '' || Number.isNaN(Number(form.stock))) {
         errors.stock = ['The stock field is required.'];
@@ -315,7 +312,7 @@ export default function AddProduct() {
 
             return next;
         });
-    }, [selectedColors, selectedSizes, form.sku, form.stock, form.price, colorTrendingMap, colorFabricMap]);
+    }, [selectedColors, selectedSizes, form.sku, form.stock,  colorTrendingMap, colorFabricMap]);
 
     const handleChange = (event) => {
         const { name, value, type, checked } = event.target;

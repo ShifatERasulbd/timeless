@@ -1,5 +1,4 @@
 import { Menu, Search, ShoppingCart, SlidersHorizontal, UserRound } from 'lucide-react';
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { timelessFontClass } from '../../utils/typography';
@@ -39,46 +38,8 @@ const utilityIcons = [
 ];
 
 export default function Header() {
-    const [tickerText, setTickerText] = useState('');
-
-    useEffect(() => {
-        let ignore = false;
-
-        async function loadHeroTicker() {
-            try {
-                const response = await fetch('/api/public/hero', {
-                    headers: { Accept: 'application/json' },
-                });
-
-                if (!response.ok) {
-                    return;
-                }
-
-                const payload = await response.json();
-                if (!ignore) {
-                    setTickerText(payload?.ticker_text || '');
-                }
-            } catch {
-                // Keep header stable if ticker cannot be loaded.
-            }
-        }
-
-        loadHeroTicker();
-
-        return () => {
-            ignore = true;
-        };
-    }, []);
-
     return (
         <header className={`${timelessFontClass} sticky top-0 z-50 w-full text-zinc-950`}>
-            {/* Top Announcement Bar */}
-            {tickerText ? (
-                <div className="bg-[#e65c00] px-4 py-2 text-center text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-white sm:text-[0.75rem]">
-                    {tickerText}
-                </div>
-            ) : null}
-
             {/* Main Header Container */}
             <div className="border-b border-zinc-200 bg-[#f4f4f4] backdrop-blur">
                 <div className="mx-auto flex h-[90px] max-w-[1920px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-10">
@@ -95,7 +56,7 @@ export default function Header() {
                                         {item.label}
                                     </Link>
 
-                                    <div className="invisible fixed left-0 right-0 top-[126px] z-50 max-h-0 w-full overflow-hidden pt-3 opacity-0 transition-[max-height,opacity] duration-300 ease-out group-hover:visible group-hover:max-h-[540px] group-hover:opacity-100">
+                                    <div className="invisible fixed left-0 right-0 top-[90px] z-50 max-h-0 w-full overflow-hidden pt-3 opacity-0 transition-[max-height,opacity] duration-300 ease-out group-hover:visible group-hover:max-h-[540px] group-hover:opacity-100">
                                         <div className="border border-zinc-200 bg-white px-4 py-8 shadow-[0_18px_60px_rgba(0,0,0,0.08)] sm:px-6 lg:px-10">
                                             <div className="mx-auto grid w-full max-w-[1920px] grid-cols-[1.15fr_1.15fr_1.15fr_1.15fr_1.1fr] gap-8 xl:gap-10">
                                                 {shopMegaMenuColumns.map((column) => (

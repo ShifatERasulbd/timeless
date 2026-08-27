@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Canvas, Circle, FabricImage, IText, Path, Polygon, Rect, Triangle } from 'fabric';
 import { toast } from 'sonner';
 
@@ -14,10 +14,35 @@ import {
     FONT_OPTIONS,
     HISTORY_LIMIT,
     PRODUCT_COLORS,
-    PRODUCT_PRICE,
-    PRODUCT_VIEWS,
+    PRODUCT_PRICE as DEFAULT_PRODUCT_PRICE,
+    PRODUCT_VIEWS as DEFAULT_PRODUCT_VIEWS,
     SERIALIZED_PROPS,
 } from './config';
+
+function normalizeImageUrl(image) {
+    if (!image) return null;
+    if (/^https?:\/\//i.test(image)) {
+        const imageUrl = new URL(image);
+        if (['localhost', '127.0.0.1'].includes(imageUrl.hostname)) {
+            return `${imageUrl.pathname}${imageUrl.search}`;
+        }
+        return image;
+    }
+    return image.startsWith('/') ? image : `/${image}`;
+}
+
+function buildProductViewsFromPayload(payload) {
+    const gallery = Array.isArray(payload.image_gallery) ? payload.image_gallery : [];
+    const frontUrl = normalizeImageUrl(payload.cover_image_url || gallery[0]);
+    if (!frontUrl) return null;
+
+    const backUrl = normalizeImageUrl(gallery.find((image) => normalizeImageUrl(image) !== frontUrl)) || frontUrl;
+
+    return [
+        { id: 'front', label: 'Front', url: frontUrl },
+        { id: 'back', label: 'Back', url: backUrl },
+    ];
+}
 
 async function ensureCsrfCookie() {
     await fetch('/sanctum/csrf-cookie', {
@@ -257,6 +282,8 @@ function normalizeColorForInput(value, fallback = '#ffffff') {
 
 export default function Features() {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const productSlug = searchParams.get('product');
     const canvasRef = useRef(null);
     const fabricRef = useRef(null);
     const productRef = useRef(null);
@@ -271,6 +298,8 @@ export default function Features() {
     const [activeTool, setActiveTool] = useState('upload');
     const [activeView, setActiveView] = useState('front');
     const [productColor, setProductColor] = useState('black');
+    const [productInfo, setProductInfo] = useState(null);
+    const [isProductLoading, setIsProductLoading] = useState(Boolean(productSlug));
     const [draftText, setDraftText] = useState('THE UNKNOWN');
     const [draftFontFamily, setDraftFontFamily] = useState('Montserrat');
     const [draftFontSize, setDraftFontSize] = useState(34);
@@ -286,6 +315,46 @@ export default function Features() {
     const [orderQuantity, setOrderQuantity] = useState(1);
     const [canUndo, setCanUndo] = useState(false);
     const [canRedo, setCanRedo] = useState(false);
+
+    const productViews = productInfo?.views || DEFAULT_PRODUCT_VIEWS;
+    const productPrice = productInfo?.price || DEFAULT_PRODUCT_PRICE;
+    const productName = productInfo?.name || '';
+    const productColors = productInfo?.colors?.length ? productInfo.colors : PRODUCT_COLORS;
+
+    useEffect(() => {
+        if (!productSlug) {
+            setIsProductLoading(false);
+            return undefined;
+        }
+
+        const controller = new AbortController();
+        setIsProductLoading(true);
+
+        fetch(`/api/public/products/${encodeURIComponent(productSlug)}`, {
+            headers: { Accept: 'application/json' },
+            signal: controller.signal,
+        })
+            .then((response) => (response.ok ? response.json() : Promise.reject(new Error('Product not found.'))))
+            .then((payload) => {
+                const views = buildProductViewsFromPayload(payload);
+                const colors = Array.isArray(payload.colors) ? payload.colors : [];
+                setProductInfo({
+                    name: payload.name || '',
+                    price: payload.price ? `$${Number(payload.price).toFixed(2)}` : '',
+                    views,
+                    colors,
+                });
+                if (colors.length) setProductColor(colors[0].id);
+            })
+            .catch((error) => {
+                if (error.name !== 'AbortError') setProductInfo(null);
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) setIsProductLoading(false);
+            });
+
+        return () => controller.abort();
+    }, [productSlug]);
 
     const activeTextLayers = useMemo(
         () => layers.filter((layer) => layer.type === 'text'),
@@ -432,6 +501,28 @@ export default function Features() {
         }
     };
 
+    const getFittedFontSize = (object, requestedFontSize, viewId = activeViewRef.current) => {
+        const area = getDesignArea(viewId);
+        if (!area) return requestedFontSize;
+
+        const previousFontSize = object.fontSize;
+        const previousScaleX = object.scaleX;
+        const previousScaleY = object.scaleY;
+
+        // Measure at scale 1 so growth is limited by fontSize itself, not a compounding scale factor.
+        object.set({ fontSize: requestedFontSize, scaleX: 1, scaleY: 1 });
+        const width = object.getScaledWidth?.() || object.width || 0;
+        const height = object.getScaledHeight?.() || object.height || 0;
+        object.set({ fontSize: previousFontSize, scaleX: previousScaleX, scaleY: previousScaleY });
+
+        if (!width || !height) return requestedFontSize;
+
+        const ratio = Math.min(area.width / width, area.height / height, 1);
+        if (ratio >= 1) return requestedFontSize;
+
+        return Math.max(6, Math.floor(requestedFontSize * ratio));
+    };
+
     const isObjectInsideArea = (object, viewId = activeViewRef.current) => {
         const area = getDesignArea(viewId);
         if (!object || !area) return true;
@@ -567,6 +658,10 @@ export default function Features() {
 
             image.setControlsVisibility({
                 mtr: true,
+                ml: false,
+                mr: false,
+                mt: false,
+                mb: false,
             });
 
             image.setCoords();
@@ -756,13 +851,28 @@ export default function Features() {
         }
     };
 
+    // Reloads the base garment image if it was somehow dropped from the canvas objects.
+    const ensureProductBasePresent = async () => {
+        const canvas = getCanvas();
+        if (!canvas) return;
+
+        const isPresent = productRef.current && canvas.getObjects().includes(productRef.current);
+        if (isPresent) {
+            canvas.sendObjectToBack(productRef.current);
+            return;
+        }
+
+        const view = productViews.find((item) => item.id === activeViewRef.current) || productViews[0];
+        if (view) await loadProductBase(view);
+    };
+
     const restoreHistorySnapshot = async (snapshot) => {
         const canvas = getCanvas();
         if (!canvas || !snapshot) return;
 
         const normalizedSnapshot = normalizeSnapshotImageSources(snapshot);
         const parsed = JSON.parse(normalizedSnapshot);
-        const view = PRODUCT_VIEWS.find((item) => item.id === parsed.activeView) || PRODUCT_VIEWS[0];
+        const view = productViews.find((item) => item.id === parsed.activeView) || productViews[0];
 
         isRestoringRef.current = true;
         canvas.discardActiveObject();
@@ -926,13 +1036,13 @@ export default function Features() {
                 }
             }
 
-            await loadProductBase(PRODUCT_VIEWS[0], { resetHistory: true });
-            applyViewVisibility(PRODUCT_VIEWS[0].id);
+            await loadProductBase(productViews[0], { resetHistory: true });
+            applyViewVisibility(productViews[0].id);
             await restoreImageLayerDrafts();
         };
 
         initialize();
-    }, [isReady]);
+    }, [isReady, isProductLoading]);
 
     useEffect(() => {
         uploadedDesignsRef.current = uploadedDesigns;
@@ -1020,6 +1130,8 @@ export default function Features() {
     const canvas = getCanvas();
 
     if (!canvas) return;
+
+    await ensureProductBasePresent();
 
     const image = await FabricImage.fromURL(imageUrl);
 
@@ -1114,6 +1226,10 @@ export default function Features() {
      */
     image.setControlsVisibility({
         mtr: true,
+        ml: false,
+        mr: false,
+        mt: false,
+        mb: false,
     });
 
     image.setCoords();
@@ -1129,6 +1245,8 @@ export default function Features() {
     canvas.add(image);
 
     canvas.setActiveObject(image);
+
+    await ensureProductBasePresent();
 
     canvas.renderAll();
 
@@ -1372,23 +1490,34 @@ export default function Features() {
         const object = getObjectById(layerId);
         if (!canvas || !object || !isTextObject(object)) return;
 
-        const nextCurveEnabled = updates.curveEnabled ?? object.get?.('curveEnabled') === true;
-        const nextCurveAmount = clampCurveAmount(updates.curveAmount ?? object.get?.('curveAmount'));
+        const nextUpdates = { ...updates };
+        const isFontSizeUpdate = typeof nextUpdates.fontSize === 'number';
+
+        if (isFontSizeUpdate) {
+            const viewId = object.get?.('viewId') || activeViewRef.current;
+            nextUpdates.fontSize = getFittedFontSize(object, nextUpdates.fontSize, viewId);
+            nextUpdates.scaleX = 1;
+            nextUpdates.scaleY = 1;
+        }
+
+        const nextCurveEnabled = nextUpdates.curveEnabled ?? object.get?.('curveEnabled') === true;
+        const nextCurveAmount = clampCurveAmount(nextUpdates.curveAmount ?? object.get?.('curveAmount'));
 
         object.set({
-            ...updates,
+            ...nextUpdates,
             curveEnabled: nextCurveEnabled,
             curveAmount: nextCurveAmount,
-            layerName: updates.text || object.text || object.get?.('layerName'),
+            layerName: nextUpdates.text || object.text || object.get?.('layerName'),
         });
 
-        if (typeof updates.text === 'string') {
-            object.set('text', updates.text);
+        if (typeof nextUpdates.text === 'string') {
+            object.set('text', nextUpdates.text);
         }
 
         applyCurvedText(object);
 
-        clampObjectToArea(object, { shouldFit: true });
+        // Font-size changes are already fitted to the box above; avoid re-scaling them.
+        clampObjectToArea(object, { shouldFit: !isFontSizeUpdate });
 
         canvas.renderAll();
         refreshLayers();
@@ -1619,7 +1748,7 @@ export default function Features() {
 
     const handleDownloadBoth = async () => {
         try {
-            for (const view of PRODUCT_VIEWS) {
+            for (const view of productViews) {
                 const dataUrl = await renderViewDataUrl(view);
                 if (!dataUrl) continue;
 
@@ -1642,8 +1771,8 @@ export default function Features() {
             await ensureCsrfCookie();
 
             const [frontImageData, backImageData] = await Promise.all([
-                renderViewDataUrl(PRODUCT_VIEWS[0]),
-                renderViewDataUrl(PRODUCT_VIEWS[1]),
+                renderViewDataUrl(productViews[0]),
+                renderViewDataUrl(productViews[1]),
             ]);
 
             const imageData = frontImageData || backImageData || canvas.toDataURL({
@@ -1651,7 +1780,7 @@ export default function Features() {
                 multiplier: 2,
             });
 
-            const unitPriceNumber = Number((PRODUCT_PRICE || '').replace(/[^0-9.]/g, '')) || 0;
+            const unitPriceNumber = Number((productPrice || '').replace(/[^0-9.]/g, '')) || 0;
             const totalPrice = unitPriceNumber * orderQuantity;
 
             const response = await fetch('/api/personalizations', {
@@ -1674,7 +1803,7 @@ export default function Features() {
                     meta: {
                         product_color: productColor,
                         active_view: activeViewRef.current,
-                        image_layers: PRODUCT_VIEWS.flatMap((view) =>
+                        image_layers: productViews.flatMap((view) =>
                             getViewObjects(view.id)
                                 .filter((obj) => obj.get?.('layerType') === 'image' || obj.type === 'image')
                                 .map((obj) => {
@@ -1722,7 +1851,7 @@ export default function Features() {
                 cachedFrontImageUrl: frontImageData || imageData || '',
                 cachedBackImageUrl: backImageData || '',
                 quantity: orderQuantity,
-                unitPrice: PRODUCT_PRICE,
+                unitPrice: productPrice,
                 totalPrice: `$${totalPrice.toFixed(2)}`,
                 orderStatus: data?.data?.order_status || 'pending',
                 productColor,
@@ -1810,13 +1939,12 @@ export default function Features() {
 
         setActiveTool(toolId);
 
-        if (toolId === 'upload' || toolId === 'images') {
+        if (toolId === 'images') {
             fileInputRef.current?.click();
         }
     };
 
-    const selectedColor = PRODUCT_COLORS.find((color) => color.id === productColor);
-
+    const selectedColor = productColors.find((color) => color.id === productColor) || productColors[0];
     return (
         <div className="min-h-screen bg-[#f7f5ef] text-zinc-950">
             <input
@@ -1833,6 +1961,8 @@ export default function Features() {
                     isSaving={isSaving}
                     onSaveDesign={handleSaveOrderDesign}
                     onShare={handleShare}
+                    productName={productName}
+                    productPrice={productPrice}
                 />
 
                 <div className="grid flex-1 grid-cols-1 gap-4 lg:grid-cols-[88px_minmax(0,1fr)] xl:grid-cols-[88px_minmax(0,1.35fr)_360px]">
@@ -1842,13 +1972,35 @@ export default function Features() {
                             canUndo={canUndo}
                             canRedo={canRedo}
                             onSelectTool={handleToolbarSelect}
+                            uploadedDesigns={uploadedDesigns}
+                            onUseUploadedDesign={handleUseUploadedDesign}
+                            onRemoveUploadedDesign={handleRemoveUploadedDesign}
+                            onOpenUpload={() => fileInputRef.current?.click()}
+                            productColors={productColors}
+                            productColor={productColor}
+                            onSelectProductColor={setProductColor}
+                            draftText={draftText}
+                            onDraftTextChange={setDraftText}
+                            draftFontFamily={draftFontFamily}
+                            onDraftFontFamilyChange={setDraftFontFamily}
+                            draftFontSize={draftFontSize}
+                            onDraftFontSizeChange={setDraftFontSize}
+                            draftTextColor={draftTextColor}
+                            onDraftTextColorChange={setDraftTextColor}
+                            onAddText={handleAddText}
+                            fontOptions={FONT_OPTIONS}
+                            activeTextLayers={activeTextLayers}
+                            onSelectObject={selectObject}
+                            onUpdateTextLayer={updateTextLayer}
+                            onDeleteSelected={handleDeleteSelected}
+                            selectedObjectId={selectedObjectId}
                         />
                     </div>
 
                     <div className="order-2 lg:order-2 lg:col-start-2 xl:col-start-2">
                         <CanvasStage
                             canvasRef={canvasRef}
-                            productViews={PRODUCT_VIEWS}
+                            productViews={productViews}
                             activeView={activeView}
                             onSwitchView={handleSwitchView}
                             onDropDesign={handleCanvasDropDesign}
@@ -1858,8 +2010,9 @@ export default function Features() {
                     <div className="order-3 lg:order-3 lg:col-span-2 xl:col-span-1 xl:col-start-3">
                         <CustomizePanel
                             activeTool={activeTool}
+                            productName={productName}
                             selectedColor={selectedColor}
-                            productColors={PRODUCT_COLORS}
+                            productColors={productColors}
                             productColor={productColor}
                             onSelectProductColor={setProductColor}
                             onOpenUpload={() => fileInputRef.current?.click()}

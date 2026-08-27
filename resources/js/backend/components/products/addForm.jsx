@@ -741,39 +741,7 @@ export default function AddForm({
                                         {errors.stock && <p className="text-xs text-destructive">{errors.stock[0]}</p>}
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor="product-price">
-                                            Price <span className="text-destructive">*</span>
-                                        </Label>
-                                        <Input
-                                            id="product-price"
-                                            name="price"
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            value={form.price ?? ''}
-                                            onChange={onChange}
-                                            placeholder="0.00"
-                                        />
-                                        {errors.price && <p className="text-xs text-destructive">{errors.price[0]}</p>}
-                                    </div>
-                                     <div className="space-y-2">
-                                        <Label htmlFor="product-discount-price">
-                                            Discount Price <span className="text-destructive">*</span>
-                                        </Label>
-                                        <Input
-                                            id="product-discount-price"
-                                            name="discount_price"
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            value={form.discount_price ?? ''}
-                                            onChange={onChange}
-                                            placeholder="0.00"
-                                        />
-                                        {errors.discount_price && <p className="text-xs text-destructive">{errors.discount_price[0]}</p>}
-                                    </div>
-
+                                  
                                     <StagePricesRepeater
                                         value={form.stage_prices}
                                         stages={stageOptions}

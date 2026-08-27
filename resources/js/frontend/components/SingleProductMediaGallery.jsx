@@ -1,11 +1,11 @@
-export default function SingleProductMediaGallery({ images, selectedImage, onSelectImage }) {
+export default function SingleProductMediaGallery({ images, selectedImage, onSelectImage, productName }) {
     return (
         <div className="flex flex-col gap-4">
             {/* Main large preview image */}
             <div className="overflow-hidden border border-zinc-200 bg-zinc-100 shadow-[0_16px_44px_rgba(0,0,0,0.08)]">
                 <img
                     src={selectedImage}
-                    alt="Corporate full sleeve t-shirt"
+                    alt={productName}
                     className="h-[500px] w-full object-cover object-center sm:h-[580px] xl:h-[640px]"
                 />
             </div>
@@ -26,7 +26,7 @@ export default function SingleProductMediaGallery({ images, selectedImage, onSel
                     >
                         <img
                             src={image}
-                            alt="Product thumbnail"
+                            alt={`${productName} view ${index + 1}`}
                             className="h-[80px] w-full object-cover object-center sm:h-[96px]"
                         />
                     </button>

@@ -1,11 +1,9 @@
 import React, { Suspense, lazy } from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 
-import Header from './frontend/components/Header.jsx';
-import Footer from './frontend/components/Footer.jsx';
-import NewsLetter from './frontend/components/NewsLetter.jsx';
 import PageSkeleton from './frontend/components/PageSkeleton.jsx';
+import FrontendLayout from './frontend/layouts/FrontendLayout.jsx';
 
 const HomePage = lazy(() => import('./frontend/pages/HomePage.jsx'));
 const ShopPage = lazy(() => import('./frontend/pages/ShopPage.jsx'));
@@ -24,19 +22,6 @@ function withPageFallback(Component) {
     );
 }
 
-function FrontendLayout() {
-    return (
-        <div className="min-h-screen bg-white text-zinc-950">
-            <Header />
-            <main>
-                <Outlet />
-            </main>
-            <NewsLetter />
-            <Footer />
-        </div>
-    );
-}
-
 function AppRouter() {
     return (
         <BrowserRouter>
@@ -45,7 +30,7 @@ function AppRouter() {
                     <Route index element={withPageFallback(HomePage)} />
                     <Route path="shop" element={withPageFallback(ShopPage)} />
                     <Route path="singleProduct" element={withPageFallback(SingleProductPage)} />
-                    <Route path="singleProduct/:productId" element={withPageFallback(SingleProductPage)} />
+                    <Route path="singleProduct/:productSlug" element={withPageFallback(SingleProductPage)} />
                     <Route path="cart" element={withPageFallback(CartPage)} />
                     <Route path="checkout" element={withPageFallback(CheckoutPage)} />
                     <Route path="about" element={withPageFallback(AboutPage)} />

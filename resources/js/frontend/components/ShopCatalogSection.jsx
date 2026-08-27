@@ -55,7 +55,10 @@ const fallbackProducts = [
 const PRODUCTS_PER_PAGE = 12;
 
 function productImageUrl(product) {
-    const image = product.cover_image_url || product.cover_image;
+    const galleryImage = Array.isArray(product.image_gallery)
+        ? product.image_gallery.find(Boolean)
+        : null;
+    const image = product.cover_image_url || product.cover_image || galleryImage;
     if (!image) return productImage;
     if (/^https?:\/\//i.test(image)) {
         const imageUrl = new URL(image);
@@ -94,10 +97,12 @@ function colorValue(color) {
 }
 
 function ProductCard({ product }) {
+    const productPath = `/singleProduct/${encodeURIComponent(product.slug || product.id)}`;
+
     return (
         <article className="group flex flex-col bg-white">
             <div className="relative aspect-[4/5] w-full overflow-hidden bg-[#F4F4F4]">
-                <Link to={`/singleProduct/${product.id}`} aria-label={`Open ${product.name} details`}>
+                <Link to={productPath} aria-label={`Open ${product.name} details`}>
                     <img
                         src={productImageUrl(product)}
                         alt={product.name}
@@ -137,7 +142,7 @@ function ProductCard({ product }) {
 
             <div className="mt-4 flex flex-col space-y-1.5">
                 <Link
-                    to={`/singleProduct/${product.id}`}
+                    to={productPath}
                     className="text-[0.95rem] font-normal tracking-[0.06em] text-zinc-900 transition-colors hover:text-zinc-600"
                 >
                     {product.name}

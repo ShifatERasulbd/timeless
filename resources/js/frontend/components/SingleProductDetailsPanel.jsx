@@ -15,6 +15,7 @@ function RulerIcon() {
 
 export default function SingleProductDetailsPanel({
     product,
+    productSlug,
     selectedColor,
     onSelectColor,
     selectedSize,
@@ -139,15 +140,17 @@ export default function SingleProductDetailsPanel({
                         Buy Now
                     </button>
 
-                    <button
-                        type="button"
+                    <a
+                        href={`/personalizer/features?product=${encodeURIComponent(productSlug || product.slug || product.id || '')}`}
                         className="inline-flex h-[50px] flex-1 min-w-[220px] items-center justify-center bg-[#4f3ed8] text-[0.95rem] font-semibold uppercase tracking-[0.08em] text-white"
                     >
                         Start Customizing
-                    </button>
+                    </a>
                 </div>
 
-                <p className="border-t border-zinc-200 pt-2.5 text-[0.98rem] text-zinc-500">SKU: N/A</p>
+                <p className="border-t border-zinc-200 pt-2.5 text-[0.98rem] text-zinc-500">
+                    SKU: {product.sku || 'N/A'}
+                </p>
                 {cartNotice ? (
                     <p className="text-[0.9rem] font-medium text-emerald-700">{cartNotice}</p>
                 ) : null}

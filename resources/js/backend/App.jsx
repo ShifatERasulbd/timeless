@@ -4,6 +4,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { AppProvider } from '@/context/AppContext';
 import AppLayout from '@/layouts/AppLayout';
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
+import FrontendLayout from '../frontend/layouts/FrontendLayout';
 
 function lazyWithRetry(importer, key) {
     return lazy(async () => {
@@ -179,9 +180,11 @@ export default function App() {
 
                         </Route>
 
-                        <Route path="/personalizer/features" element={<PersonalizerFeatures />} />
-                        <Route path="/personalizer/confirm-order" element={<PersonalizerConfirmOrder />} />
-                        <Route path="/personalizer/mockup-preview" element={<PersonalizerMockupPreview />} />
+                        <Route element={<FrontendLayout />}>
+                            <Route path="/personalizer/features" element={<PersonalizerFeatures />} />
+                            <Route path="/personalizer/confirm-order" element={<PersonalizerConfirmOrder />} />
+                            <Route path="/personalizer/mockup-preview" element={<PersonalizerMockupPreview />} />
+                        </Route>
                         <Route path="/" element={<main />} />
 
                         {/* Hero Management */}
