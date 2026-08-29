@@ -475,6 +475,9 @@ class ApiProductController extends Controller
 
                 return [
                     'id' => Str::slug($name) ?: $token,
+                    // Raw stored token (usually the Color model id) so the frontend can look up
+                    // this color's attached images in `color_variant_images`, which is keyed by it.
+                    'token' => $token,
                     'label' => $name,
                     'value' => $match?->color_code ?? $this->resolveColorCode($name) ?? '#cccccc',
                 ];

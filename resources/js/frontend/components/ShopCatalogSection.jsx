@@ -54,12 +54,8 @@ const fallbackProducts = [
 
 const PRODUCTS_PER_PAGE = 12;
 
-function productImageUrl(product) {
-    const galleryImage = Array.isArray(product.image_gallery)
-        ? product.image_gallery.find(Boolean)
-        : null;
-    const image = product.cover_image_url || product.cover_image || galleryImage;
-    if (!image) return productImage;
+function normalizeImagePath(image) {
+    if (!image) return null;
     if (/^https?:\/\//i.test(image)) {
         const imageUrl = new URL(image);
         if (['localhost', '127.0.0.1'].includes(imageUrl.hostname)) {
@@ -67,8 +63,25 @@ function productImageUrl(product) {
         }
         return image;
     }
-    if (image.startsWith('/')) return image;
-    return `/${image}`;
+    return image.startsWith('/') ? image : `/${image}`;
+}
+
+function productImageUrl(product) {
+    const galleryImage = Array.isArray(product.image_gallery)
+        ? product.image_gallery.find(Boolean)
+        : null;
+    const image = product.cover_image_url || product.cover_image || galleryImage;
+    return image ? normalizeImagePath(image) : productImage;
+}
+
+// `color_variant_images` (from the API) is keyed by each color's raw token (see `token` below),
+// with arrays of admin-attached image paths for that color.
+function colorImageUrl(product, token) {
+    const variantImages = product.color_variant_images && typeof product.color_variant_images === 'object'
+        ? product.color_variant_images[token]
+        : null;
+    const firstImage = Array.isArray(variantImages) ? variantImages.find(Boolean) : null;
+    return firstImage ? normalizeImagePath(firstImage) : null;
 }
 
 function productPrice(price) {
@@ -76,35 +89,51 @@ function productPrice(price) {
     return Number.isFinite(amount) ? `$${amount.toFixed(2)}` : price;
 }
 
+const NAMED_COLORS = {
+    black: '#111111',
+    white: '#ffffff',
+    navy: '#1f2d49',
+    red: '#b52a2f',
+    grey: '#9ca3af',
+    gray: '#9ca3af',
+    blue: '#315f91',
+    green: '#526c55',
+};
+
+// `product.colors` (from the API) already resolves color IDs/names into { label, value } hex
+// codes; `product.color` is the raw stored value (often a numeric Color id) and isn't a valid
+// CSS color on its own, so prefer `colors` and only fall back to `color` for legacy/mock data.
+// Mock/fallback data uses plain hex strings, so normalize every entry into { label, value }.
 function productColors(product) {
-    const colors = Array.isArray(product.color) ? product.color : product.colors;
-    return Array.isArray(colors) && colors.length ? colors : ['#111111', '#707070', '#d8d3ca'];
+    const source = (Array.isArray(product.colors) && product.colors.length)
+        ? product.colors
+        : (Array.isArray(product.color) && product.color.length ? product.color : ['#111111', '#707070', '#d8d3ca']);
+
+    return source.map((color) => (
+        typeof color === 'object' && color !== null
+            ? { label: color.label ?? color.value, value: color.value, token: color.token }
+            : { label: color, value: colorValue(color), token: color }
+    ));
 }
 
 function colorValue(color) {
     const normalized = String(color).toLowerCase();
-    const namedColors = {
-        black: '#111111',
-        white: '#ffffff',
-        navy: '#1f2d49',
-        red: '#b52a2f',
-        grey: '#9ca3af',
-        gray: '#9ca3af',
-        blue: '#315f91',
-        green: '#526c55',
-    };
-    return namedColors[normalized] || color;
+    return NAMED_COLORS[normalized] || color;
 }
 
 function ProductCard({ product }) {
     const productPath = `/singleProduct/${encodeURIComponent(product.slug || product.id)}`;
+    const colors = productColors(product);
+    const [selectedColorIndex, setSelectedColorIndex] = useState(0);
+    const selectedToken = colors[selectedColorIndex]?.token;
+    const displayImage = colorImageUrl(product, selectedToken) || productImageUrl(product);
 
     return (
         <article className="group flex flex-col bg-white">
             <div className="relative aspect-[4/5] w-full overflow-hidden bg-[#F4F4F4]">
                 <Link to={productPath} aria-label={`Open ${product.name} details`}>
                     <img
-                        src={productImageUrl(product)}
+                        src={displayImage}
                         alt={product.name}
                         onError={(event) => {
                             if (!event.currentTarget.src.endsWith(productImage)) {
@@ -152,12 +181,23 @@ function ProductCard({ product }) {
                 <div className="mt-1 flex flex-col gap-1">
                     <span className="text-[0.65rem] font-semibold uppercase tracking-[0.15em] text-zinc-400">Color</span>
                     <div className="flex items-center gap-2">
-                        {productColors(product).slice(0, 5).map((color, index) => (
-                            <span
-                                key={`${color}-${index}`}
-                                className="size-4 rounded-full border border-zinc-300 transition-transform hover:scale-110"
-                                style={{ backgroundColor: colorValue(color) }}
-                                title={color}
+                        {colors.slice(0, 5).map((color, index) => (
+                            <button
+                                key={`${color.value}-${index}`}
+                                type="button"
+                                onClick={(event) => {
+                                    event.preventDefault();
+                                    setSelectedColorIndex(index);
+                                }}
+                                aria-label={`Select ${color.label} color`}
+                                aria-pressed={selectedColorIndex === index}
+                                className={`size-4 rounded-full border transition-transform hover:scale-110 ${
+                                    selectedColorIndex === index
+                                        ? 'border-zinc-900 ring-1 ring-offset-1 ring-zinc-900'
+                                        : 'border-zinc-300'
+                                }`}
+                                style={{ backgroundColor: color.value }}
+                                title={color.label}
                             />
                         ))}
                     </div>

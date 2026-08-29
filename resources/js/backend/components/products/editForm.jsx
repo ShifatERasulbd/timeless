@@ -855,15 +855,17 @@ export default function EditForm({
                                     />
                                 </div>
                             </div>
+                        </div>
+                    </div>
 
-                            {variantRows.length > 0 && (
-                                <div className="space-y-2 rounded-md border bg-muted/20 p-3">
-                                    <p className="text-sm font-medium">
-                                        Variants
-                                        {variantGroupName ? ` - ${variantGroupName}` : ''}
-                                    </p>
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full min-w-[780px] text-sm">
+                    {variantRows.length > 0 && (
+                        <div className="space-y-2 rounded-md border bg-muted/20 p-3">
+                            <p className="text-sm font-medium">
+                                Variants
+                                {variantGroupName ? ` - ${variantGroupName}` : ''}
+                            </p>
+                            <div className="overflow-x-auto">
+                                <table className="w-full min-w-[780px] text-sm">
                                             <thead>
                                                 <tr className="border-b text-left">
                                                     <th className="py-2 pr-2">Color</th>
@@ -995,8 +997,6 @@ export default function EditForm({
                                     </div>
                                 </div>
                             )}
-                        </div>
-                    </div>
                 </CardContent>
 
                 <Separator />

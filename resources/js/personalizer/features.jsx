@@ -44,6 +44,30 @@ function buildProductViewsFromPayload(payload) {
     ];
 }
 
+// `color_variant_images` is keyed by each color option's raw `token` (see ApiProductController::
+// buildColorOptions), with arrays of admin-attached image paths for that color. Builds a
+// front/back view pair per color so switching colors swaps the canvas base image + thumbnails.
+function buildColorViewsMap(payload) {
+    const variantImages = payload.color_variant_images && typeof payload.color_variant_images === 'object'
+        ? payload.color_variant_images
+        : {};
+
+    const map = {};
+    Object.entries(variantImages).forEach(([token, images]) => {
+        const normalized = (Array.isArray(images) ? images : [])
+            .map(normalizeImageUrl)
+            .filter(Boolean);
+        if (!normalized.length) return;
+
+        map[token] = [
+            { id: 'front', label: 'Front', url: normalized[0] },
+            { id: 'back', label: 'Back', url: normalized[1] || normalized[0] },
+        ];
+    });
+
+    return map;
+}
+
 // Picks the price tier whose quantity range contains the selected quantity, preferring the
 // "Guest" status tier since there's no logged-in customer distinction on the storefront.
 function resolveUnitPrice(stagePrices, quantity, basePrice) {
@@ -390,7 +414,6 @@ export default function Features() {
         personalizerPriceTiersRef.current = personalizerPriceTiers;
     }, [personalizerPriceTiers]);
 
-    const productViews = productInfo?.views || DEFAULT_PRODUCT_VIEWS;
     const productPrice = useMemo(() => {
         if (!productInfo?.basePrice && productInfo?.basePrice !== 0) return DEFAULT_PRODUCT_PRICE;
 
@@ -399,6 +422,14 @@ export default function Features() {
     }, [productInfo, orderQuantity]);
     const productName = productInfo?.name || '';
     const productColors = productInfo?.colors?.length ? productInfo.colors : PRODUCT_COLORS;
+
+    // Prefer the selected color's own attached images; fall back to the product's default views
+    // (cover image/gallery) when that color has none attached.
+    const selectedColorToken = productColors.find((color) => color.id === productColor)?.token;
+    const defaultProductViews = productInfo?.views || DEFAULT_PRODUCT_VIEWS;
+    const productViews = (selectedColorToken && productInfo?.colorViews?.[selectedColorToken]?.length)
+        ? productInfo.colorViews[selectedColorToken]
+        : defaultProductViews;
 
     useEffect(() => {
         if (!productSlug) {
@@ -424,6 +455,7 @@ export default function Features() {
                     stagePrices: Array.isArray(payload.stage_prices) ? payload.stage_prices : [],
                     views,
                     colors,
+                    colorViews: buildColorViewsMap(payload),
                 });
                 if (colors.length) setProductColor(colors[0].id);
             })
@@ -1376,6 +1408,16 @@ export default function Features() {
             }
         });
     };
+
+    // Swaps the base garment image to match the newly selected color, keeping the user's design
+    // layers untouched (mirrors handleSwitchView, but reloads the SAME view id with a new url).
+    useEffect(() => {
+        if (!hasInitializedRef.current) return;
+
+        const view = productViews.find((item) => item.id === activeViewRef.current) || productViews[0];
+        if (view) loadProductBase(view);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [productColor]);
 
     const addImageToCanvas = async (
     imageUrl,

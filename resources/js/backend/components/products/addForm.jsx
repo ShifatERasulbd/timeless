@@ -753,11 +753,14 @@ export default function AddForm({
 
                                     
                                 </div>
+                            </div>
+                        </div>
+                    </div>
 
-                                {variantRows.length > 0 && (
-                                    <div className="space-y-2 rounded-md border bg-muted/20 p-3">
-                                        <p className="text-sm font-medium">Variants</p>
-                                        <div className="overflow-x-auto">
+                    {variantRows.length > 0 && (
+                        <div className="space-y-2 rounded-md border bg-muted/20 p-3">
+                            <p className="text-sm font-medium">Variants</p>
+                            <div className="overflow-x-auto">
                                             <table className="w-full min-w-[720px] text-sm">
                                                 <thead>
                                                     <tr className="border-b text-left">
@@ -890,9 +893,6 @@ export default function AddForm({
                                         </div>
                                     </div>
                                 )}
-                            </div>
-                        </div>
-                    </div>
                 </CardContent>
 
                 <Separator />

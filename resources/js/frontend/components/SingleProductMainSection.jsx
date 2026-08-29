@@ -86,6 +86,13 @@ function normalizeProduct(payload, colorOptions, sizeOptions) {
         .map(normalizeImageUrl)
         .filter((image, index, allImages) => image && allImages.indexOf(image) === index);
 
+    const colorVariantImages = payload.color_variant_images && typeof payload.color_variant_images === 'object'
+        ? payload.color_variant_images
+        : {};
+
+    // Maps each color's label to its admin-attached images (keyed by raw color id in the API payload).
+    const colorImages = {};
+
     return {
         ...payload,
         basePrice: Number(payload.price || 0),
@@ -95,6 +102,10 @@ function normalizeProduct(payload, colorOptions, sizeOptions) {
         colors: rawColors.map((color) => {
             const option = colorOptions.find((item) => String(item.id) === String(color));
             const label = option?.name || String(color);
+            const attachedImages = Array.isArray(colorVariantImages[color])
+                ? colorVariantImages[color].map(normalizeImageUrl).filter(Boolean)
+                : [];
+            if (attachedImages.length) colorImages[label] = attachedImages;
             return {
                 label,
                 value: option?.color_code || (label.startsWith('#')
@@ -102,6 +113,7 @@ function normalizeProduct(payload, colorOptions, sizeOptions) {
                     : namedColors[label.toLowerCase()] || '#707070'),
             };
         }),
+        colorImages,
         sizes: rawSizes.map((size) => {
             const option = sizeOptions.find((item) => String(item.id) === String(size));
             return String(option?.Size || option?.size || size);
@@ -173,6 +185,15 @@ export default function SingleProductMainSection() {
         () => resolveUnitPrice(resolvedProduct.stagePrices, quantity, resolvedProduct.basePrice ?? 0),
         [resolvedProduct.stagePrices, resolvedProduct.basePrice, quantity]
     );
+
+    const galleryImages = useMemo(() => {
+        const attachedImages = resolvedProduct.colorImages?.[selectedColor];
+        return attachedImages?.length ? attachedImages : resolvedProduct.images;
+    }, [resolvedProduct.colorImages, resolvedProduct.images, selectedColor]);
+
+    useEffect(() => {
+        setSelectedImage(galleryImages[0]);
+    }, [galleryImages]);
 
     const displayProduct = useMemo(
         () => ({ ...resolvedProduct, price: `$${unitPrice.toFixed(2)}` }),
@@ -269,7 +290,7 @@ export default function SingleProductMainSection() {
                 <div className="grid items-start gap-10 lg:grid-cols-[1fr_1.1fr] lg:gap-14">
                     <div className="self-start">
                         <SingleProductMediaGallery
-                            images={resolvedProduct.images}
+                            images={galleryImages}
                             selectedImage={selectedImage}
                             onSelectImage={setSelectedImage}
                             productName={resolvedProduct.name}
