@@ -15,8 +15,6 @@ import RichTextEditor from './richTextEditor';
 import ProductFeaturesRepeater from './ProductFeaturesRepeater';
 import StagePricesRepeater from './StagePricesRepeater';
 
-const FABRIC_OPTIONS = ['Flex Twill', 'Dual Skin Scuba', 'Aero Twill', 'Terra Soft'];
-
 export default function AddForm({
     form = {},
     errors = {},
@@ -33,7 +31,6 @@ export default function AddForm({
     selectedColors = [],
     selectedSizes = [],
     colorTrendingMap = {},
-    colorFabricMap = {},
     variantRows = [],
     colorVariantImageMap = {},
     colorVariantSizeChartMap = {},
@@ -48,7 +45,6 @@ export default function AddForm({
     onReorderSizes,
     onVariantRowChange,
     onColorTrendingChange,
-    onColorFabricChange,
     onColorVariantImagesChange,
     onColorVariantSizeChartsChange,
     onGalleryFilesChange,
@@ -68,7 +64,8 @@ export default function AddForm({
 }) {
     const [isImageModalOpen, setIsImageModalOpen] = useState(false);
     const [activeColorForImages, setActiveColorForImages] = useState('');
-    const [draftImageValues, setDraftImageValues] = useState([]);
+    const [draftFrontImage, setDraftFrontImage] = useState('');
+    const [draftBackImage, setDraftBackImage] = useState('');
     const [isSizeChartModalOpen, setIsSizeChartModalOpen] = useState(false);
     const [activeColorForSizeCharts, setActiveColorForSizeCharts] = useState('');
     const [draftSizeChartValues, setDraftSizeChartValues] = useState([]);
@@ -121,32 +118,36 @@ export default function AddForm({
     }, [variantRows]);
 
     const openColorImagesModal = (color) => {
+        const existingImages = colorVariantImageMap[color] || [];
         setActiveColorForImages(color);
-        setDraftImageValues(colorVariantImageMap[color] || []);
+        setDraftFrontImage(existingImages[0] || '');
+        setDraftBackImage(existingImages[1] || '');
         setIsImageModalOpen(true);
     };
 
-    const toggleDraftImage = (imageValue) => {
-        setDraftImageValues((previous) =>
-            previous.includes(imageValue)
-                ? previous.filter((value) => value !== imageValue)
-                : [...previous, imageValue],
-        );
+    const selectDraftFrontImage = (value) => {
+        setDraftFrontImage((previous) => (previous === value ? '' : value));
+    };
+
+    const selectDraftBackImage = (value) => {
+        setDraftBackImage((previous) => (previous === value ? '' : value));
     };
 
     const saveColorImagesSelection = () => {
         if (activeColorForImages) {
-            onColorVariantImagesChange?.(activeColorForImages, draftImageValues);
+            onColorVariantImagesChange?.(activeColorForImages, [draftFrontImage, draftBackImage].filter(Boolean));
         }
         setIsImageModalOpen(false);
         setActiveColorForImages('');
-        setDraftImageValues([]);
+        setDraftFrontImage('');
+        setDraftBackImage('');
     };
 
     const closeColorImagesModal = () => {
         setIsImageModalOpen(false);
         setActiveColorForImages('');
-        setDraftImageValues([]);
+        setDraftFrontImage('');
+        setDraftBackImage('');
     };
 
     const openColorSizeChartsModal = (color) => {
@@ -771,7 +772,6 @@ export default function AddForm({
                                                         <th className="py-2 pr-2">Weight</th>
                                                         <th className="py-2 pl-2">Trending</th>
                                                         <th className="py-2 pl-2">Color Images</th>
-                                                        <th className="py-2 pl-2">Fabric</th>
                                                         <th className="py-2 pl-2">Size Charts</th>
                                                     </tr>
                                                 </thead>
@@ -839,30 +839,11 @@ export default function AddForm({
                                                                             Attach Images
                                                                         </Button>
                                                                         <p className="text-[11px] text-muted-foreground">
-                                                                            {(colorVariantImageMap[row.color] || []).length} selected for {getColorLabel(row.color)}
+                                                                            Front: {(colorVariantImageMap[row.color] || [])[0] ? 'Set' : 'Not set'} · Back: {(colorVariantImageMap[row.color] || [])[1] ? 'Set' : 'Not set'}
                                                                         </p>
                                                                     </div>
                                                                 ) : (
                                                                     <p className="text-xs text-muted-foreground">Uses {getColorLabel(row.color)} images</p>
-                                                                )}
-                                                            </td>
-                                                            <td className="py-2 pl-2 align-top">
-                                                                {firstColorRowKeys[row.key] ? (
-                                                                    <select
-                                                                        value={colorFabricMap[row.color] || ''}
-                                                                        onChange={(event) => onColorFabricChange?.(row.color, event.target.value)}
-                                                                        disabled={isSubmitting}
-                                                                        className="flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-sm shadow-xs outline-none ring-offset-background focus-visible:ring-1 focus-visible:ring-ring"
-                                                                    >
-                                                                        <option value="">Select fabric</option>
-                                                                        {FABRIC_OPTIONS.map((fabric) => (
-                                                                            <option key={fabric} value={fabric}>
-                                                                                {fabric}
-                                                                            </option>
-                                                                        ))}
-                                                                    </select>
-                                                                ) : (
-                                                                    <p className="text-xs text-muted-foreground">Uses {getColorLabel(row.color)} fabric</p>
                                                                 )}
                                                             </td>
                                                             <td className="py-2 pl-2 align-top">
@@ -919,37 +900,47 @@ export default function AddForm({
 
                         <div className="max-h-[70vh] overflow-y-auto p-4">
                             {galleryPreviewUrls.length > 0 ? (
-                                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-                                    {galleryPreviewUrls.map((image) => {
-                                        const isSelected = draftImageValues.includes(image.value);
+                                <div className="space-y-6">
+                                    {[
+                                        { label: 'Front Image', value: draftFrontImage, onSelect: selectDraftFrontImage },
+                                        { label: 'Back Image', value: draftBackImage, onSelect: selectDraftBackImage },
+                                    ].map((slot) => (
+                                        <div key={slot.label}>
+                                            <p className="mb-2 text-sm font-medium">{slot.label}</p>
+                                            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+                                                {galleryPreviewUrls.map((image) => {
+                                                    const isSelected = slot.value === image.value;
 
-                                        return (
-                                            <button
-                                                key={image.id}
-                                                type="button"
-                                                onClick={() => toggleDraftImage(image.value)}
-                                                className={`overflow-hidden rounded-md border text-left transition ${
-                                                    isSelected
-                                                        ? 'border-primary ring-2 ring-primary/30'
-                                                        : 'border-input hover:border-primary/60'
-                                                }`}
-                                            >
-                                                <img
-                                                    src={image.url}
-                                                    alt={image.name}
-                                                    className="h-40 w-full bg-muted/30 object-contain"
-                                                />
-                                                <div className="space-y-1 p-2">
-                                                    <p className="truncate text-xs font-medium" title={image.name}>
-                                                        {image.name}
-                                                    </p>
-                                                    <p className="text-[11px] text-muted-foreground">
-                                                        {isSelected ? 'Selected' : 'Click to select'}
-                                                    </p>
-                                                </div>
-                                            </button>
-                                        );
-                                    })}
+                                                    return (
+                                                        <button
+                                                            key={image.id}
+                                                            type="button"
+                                                            onClick={() => slot.onSelect(image.value)}
+                                                            className={`overflow-hidden rounded-md border text-left transition ${
+                                                                isSelected
+                                                                    ? 'border-primary ring-2 ring-primary/30'
+                                                                    : 'border-input hover:border-primary/60'
+                                                            }`}
+                                                        >
+                                                            <img
+                                                                src={image.url}
+                                                                alt={image.name}
+                                                                className="h-32 w-full bg-muted/30 object-contain"
+                                                            />
+                                                            <div className="space-y-1 p-2">
+                                                                <p className="truncate text-xs font-medium" title={image.name}>
+                                                                    {image.name}
+                                                                </p>
+                                                                <p className="text-[11px] text-muted-foreground">
+                                                                    {isSelected ? `Selected as ${slot.label.toLowerCase()}` : 'Click to select'}
+                                                                </p>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             ) : (
                                 <div className="rounded border border-dashed p-6 text-center text-sm text-muted-foreground">
@@ -963,7 +954,7 @@ export default function AddForm({
                                 Cancel
                             </Button>
                             <Button type="button" onClick={saveColorImagesSelection}>
-                                Save Selection ({draftImageValues.length})
+                                Save Selection
                             </Button>
                         </div>
                     </div>

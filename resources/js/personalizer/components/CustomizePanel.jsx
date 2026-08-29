@@ -132,25 +132,6 @@ export default function CustomizePanel({
                     <h1 className="text-2xl font-semibold tracking-tight">
                         Personalize your {productName}
                     </h1>
-                    <div className="mt-1 flex items-center gap-2">
-                        <p className="text-sm text-zinc-500">Product Price</p>
-                        {productPrice ? (
-                            <span className="text-sm font-semibold text-zinc-900">{productPrice}</span>
-                        ) : null}
-                    </div>
-                    <div className="mt-1 flex items-center gap-2">
-                        <p className="text-sm text-zinc-500">Design Price</p>
-                        <span className="text-sm font-semibold text-zinc-900">{designPrice || '$0.00'}</span>
-                    </div>
-                    {designBreakdown.length > 0 && (
-                        <ul className="mt-1 space-y-0.5">
-                            {designBreakdown.map((row) => (
-                                <li key={row.size} className="text-xs text-zinc-500">
-                                    {row.size} inch square{row.count > 1 ? ` x${row.count}` : ''} = <span className="font-medium text-zinc-700">${row.lineTotal.toFixed(2)}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
                 </div>
 
                 <div className="mt-auto space-y-3 rounded-3xl border border-zinc-200 bg-zinc-50 p-4">
@@ -195,10 +176,28 @@ export default function CustomizePanel({
                         </div>
                     </div>
 
-                    <div className="space-y-1 rounded-2xl border border-zinc-200 bg-white p-3">
+                    <div className="space-y-2.5 rounded-2xl border border-zinc-200 bg-white p-4">
                         <div className="flex items-center justify-between text-sm">
-                            <span className="font-semibold text-zinc-800">Order total</span>
-                            <span className="font-semibold text-zinc-900">
+                            <span className="text-zinc-500">Product Price</span>
+                            <span className="font-semibold text-zinc-900">{productPrice || '$0.00'}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm">
+                            <span className="text-zinc-500">Design Price</span>
+                            <span className="font-semibold text-zinc-900">{designPrice || '$0.00'}</span>
+                        </div>
+                        {designBreakdown.length > 0 && (
+                            <ul className="space-y-1 border-t border-dashed border-zinc-200 pt-2">
+                                {designBreakdown.map((row) => (
+                                    <li key={row.size} className="flex items-center justify-between text-xs text-zinc-500">
+                                        <span>{row.size} inch square{row.count > 1 ? ` x${row.count}` : ''}</span>
+                                        <span className="font-medium text-zinc-700">${row.lineTotal.toFixed(2)}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                        <div className="flex items-center justify-between border-t border-zinc-200 pt-2.5">
+                            <span className="text-sm font-semibold text-zinc-800">Order total</span>
+                            <span className="text-lg font-bold text-zinc-950">
                                 ${(
                                     ((Number((productPrice || '0').replace(/[^0-9.]/g, '')) || 0)
                                         + (Number((designPrice || '0').replace(/[^0-9.]/g, '')) || 0))

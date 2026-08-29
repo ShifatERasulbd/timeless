@@ -220,21 +220,30 @@ export default function LeftToolbar({
                         <p className="mt-3 text-sm text-zinc-500">No colors available.</p>
                     ) : (
                         <div className="mt-3 flex flex-wrap gap-3">
-                            {productColors.map((color) => (
-                                <button
-                                    key={color.id}
-                                    type="button"
-                                    onClick={() => onSelectProductColor?.(color.id)}
-                                    className="flex size-10 items-center justify-center rounded-full border shadow-sm transition-transform hover:scale-105"
-                                    style={{ backgroundColor: color.value }}
-                                    aria-label={color.label}
-                                    title={color.label}
-                                >
-                                    {productColor === color.id && (
-                                        <Check className={cn('size-4', color.value === '#ffffff' || color.value === '#f9fafb' ? 'text-zinc-900' : 'text-white')} />
-                                    )}
-                                </button>
-                            ))}
+                            {productColors.map((color) => {
+                                const isActive = productColor === color.id;
+                                const isLightSwatch = ['#ffffff', '#f9fafb'].includes(String(color.value).toLowerCase());
+
+                                return (
+                                    <button
+                                        key={color.id}
+                                        type="button"
+                                        onClick={() => onSelectProductColor?.(color.id)}
+                                        className={cn(
+                                            'flex size-10 items-center justify-center rounded-full border shadow-sm transition-transform hover:scale-105',
+                                            isActive ? 'ring-2 ring-zinc-950 ring-offset-2' : 'ring-0'
+                                        )}
+                                        style={{ backgroundColor: color.value }}
+                                        aria-label={color.label}
+                                        aria-pressed={isActive}
+                                        title={color.label}
+                                    >
+                                        {isActive && (
+                                            <Check className={cn('size-4', isLightSwatch ? 'text-zinc-900' : 'text-white')} />
+                                        )}
+                                    </button>
+                                );
+                            })}
                         </div>
                     )}
                 </ToolDrawer>

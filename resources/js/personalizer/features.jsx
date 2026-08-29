@@ -36,12 +36,14 @@ function buildProductViewsFromPayload(payload) {
     const frontUrl = normalizeImageUrl(payload.cover_image_url || gallery[0]);
     if (!frontUrl) return null;
 
-    const backUrl = normalizeImageUrl(gallery.find((image) => normalizeImageUrl(image) !== frontUrl)) || frontUrl;
+    const backUrl = normalizeImageUrl(gallery.find((image) => normalizeImageUrl(image) !== frontUrl));
 
-    return [
-        { id: 'front', label: 'Front', url: frontUrl },
-        { id: 'back', label: 'Back', url: backUrl },
-    ];
+    return backUrl
+        ? [
+            { id: 'front', label: 'Front', url: frontUrl },
+            { id: 'back', label: 'Back', url: backUrl },
+        ]
+        : [{ id: 'front', label: 'Front', url: frontUrl }];
 }
 
 // `color_variant_images` is keyed by each color option's raw `token` (see ApiProductController::
@@ -59,10 +61,15 @@ function buildColorViewsMap(payload) {
             .filter(Boolean);
         if (!normalized.length) return;
 
-        map[token] = [
-            { id: 'front', label: 'Front', url: normalized[0] },
-            { id: 'back', label: 'Back', url: normalized[1] || normalized[0] },
-        ];
+        // Only add a distinct 'back' thumbnail when admin attached a second, different image —
+        // otherwise a single attached image would show up duplicated as both front and back.
+        const backUrl = normalized[1] && normalized[1] !== normalized[0] ? normalized[1] : null;
+        map[token] = backUrl
+            ? [
+                { id: 'front', label: 'Front', url: normalized[0] },
+                { id: 'back', label: 'Back', url: backUrl },
+            ]
+            : [{ id: 'front', label: 'Front', url: normalized[0] }];
     });
 
     return map;
@@ -240,6 +247,32 @@ const UPLOADED_DESIGNS_STORAGE_KEY = 'personalizer:uploadedDesigns';
 const CANVAS_DRAFT_STORAGE_KEY = 'personalizer:canvasDraft';
 const PENDING_ORDER_STORAGE_KEY = 'personalizer:pendingOrder';
 const IMAGE_LAYERS_STORAGE_KEY = 'personalizer:imageLayersDraft';
+
+// Cached base64 previews can be several MB each (2x-scaled PNGs for both views), which can push
+// the combined payload past the browser's storage quota. Try the full payload first (so previews
+// render instantly without waiting on the server-hosted URLs); if that throws, fall back to a
+// stripped payload that relies on the server URLs instead of failing the whole save.
+function persistPendingOrder(orderDetails) {
+    const fullPayload = JSON.stringify(orderDetails);
+    const strippedPayload = JSON.stringify({
+        ...orderDetails,
+        cachedImageUrl: '',
+        cachedFrontImageUrl: '',
+        cachedBackImageUrl: '',
+    });
+
+    [sessionStorage, localStorage].forEach((storage) => {
+        try {
+            storage.setItem(PENDING_ORDER_STORAGE_KEY, fullPayload);
+        } catch {
+            try {
+                storage.setItem(PENDING_ORDER_STORAGE_KEY, strippedPayload);
+            } catch {
+                // Give up silently for this storage - the order is already saved server-side.
+            }
+        }
+    });
+}
 const PIXELS_PER_INCH = 96;
 // Real-world size of the printable area on the garment, used to calibrate on-canvas measurements.
 const PRINT_AREA_WIDTH_IN = 14;
@@ -2165,8 +2198,7 @@ export default function Features() {
                 createdAt: new Date().toISOString(),
             };
 
-            sessionStorage.setItem(PENDING_ORDER_STORAGE_KEY, JSON.stringify(orderDetails));
-            localStorage.setItem(PENDING_ORDER_STORAGE_KEY, JSON.stringify(orderDetails));
+            persistPendingOrder(orderDetails);
             toast.success('Design saved successfully.');
             return orderDetails;
         } catch (error) {
