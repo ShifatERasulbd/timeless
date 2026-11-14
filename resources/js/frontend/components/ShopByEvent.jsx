@@ -1,11 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { featuresFontClass } from '../../utils/typography';
 
-function IndustryCard({ title, image }) {
+// Stagger between each industry card starting its fade-in.
+const CARD_STAGGER_MS = 180;
+
+function IndustryCard({ title, image, ready, delayMs }) {
     return (
-        <article className="group relative aspect-[3/5] w-full overflow-hidden bg-zinc-200">
+        <article
+            className={`industry-card${ready ? ' industry-card--ready' : ''} group relative aspect-[3/5] w-full overflow-hidden bg-zinc-200`}
+            style={{ '--industry-card-delay': `${delayMs}ms` }}
+        >
             {image ? (
                 <img
                     src={image}
@@ -30,6 +36,8 @@ export default function ShopByIndustry() {
         subtitle: '',
         items: [],
     });
+    const [itemsReady, setItemsReady] = useState(false);
+    const sectionRef = useRef(null);
 
     useEffect(() => {
         let ignore = false;
@@ -64,12 +72,62 @@ export default function ShopByIndustry() {
         };
     }, []);
 
+    // Reveal cards one after another whenever the section enters the viewport.
+    useEffect(() => {
+        const node = sectionRef.current;
+        if (!node || section.items.length === 0) {
+            return;
+        }
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setItemsReady(false);
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => setItemsReady(true));
+                    });
+                } else {
+                    setItemsReady(false);
+                }
+            },
+            { threshold: 0.15 }
+        );
+
+        observer.observe(node);
+
+        return () => observer.disconnect();
+    }, [section.items]);
+
     if (!section.title && !section.subtitle && !section.items.length) {
         return <section id="home-shop-by-industry-section" className="py-1" />;
     }
 
     return (
-        <section id="home-shop-by-industry-section" className={`${featuresFontClass} bg-[#F9F9F8] py-5 sm:py-5 w-full`}>
+        <section
+            id="home-shop-by-industry-section"
+            ref={sectionRef}
+            className={`${featuresFontClass} bg-[#F9F9F8] py-5 sm:py-5 w-full`}
+        >
+            <style>{`
+                @keyframes industryCardFadeIn {
+                    0% {
+                        opacity: 0;
+                        transform: translateY(24px);
+                    }
+                    100% {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+                .industry-card {
+                    opacity: 0;
+                    transform: translateY(24px);
+                }
+                .industry-card.industry-card--ready {
+                    animation: industryCardFadeIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+                    animation-delay: var(--industry-card-delay, 0ms);
+                }
+            `}</style>
             <div className="w-full px-6 sm:px-8 lg:px-12 mb-10 sm:mb-12">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div>
@@ -92,8 +150,14 @@ export default function ShopByIndustry() {
 
             <div className="w-full px-0">
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 lg:gap-0.5">
-                    {section.items.map((item) => (
-                        <IndustryCard key={item.id} title={item.title} image={item.image_url || item.image} />
+                    {section.items.map((item, index) => (
+                        <IndustryCard
+                            key={item.id}
+                            title={item.title}
+                            image={item.image_url || item.image}
+                            ready={itemsReady}
+                            delayMs={index * CARD_STAGGER_MS}
+                        />
                     ))}
                 </div>
             </div>

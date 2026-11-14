@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\HeroController;
 use App\Http\Controllers\PersonalizationController;
+use App\Http\Controllers\OrderController;
 use App\Http\Controllers\FeaturesController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CanadaWarehouseStockController;
@@ -16,6 +17,7 @@ use App\Http\Controllers\StageController;
 use App\Http\Controllers\PersonalizerPriceController;
 use App\Http\Controllers\SizeController;
 use App\Http\Controllers\ColorController;
+use App\Http\Controllers\SettingsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -83,6 +85,7 @@ Route::prefix('api')->group(function () {
     Route::get('/public/personalizer-prices', [PersonalizerPriceController::class, 'index']);
     Route::post('/personalizations', [PersonalizationController::class, 'store']);
     Route::patch('/personalizations/{personalization}/confirm', [PersonalizationController::class, 'confirm']);
+    Route::post('/orders', [OrderController::class, 'store']);
 
     Route::middleware('auth:sanctum')->group(function () {
         
@@ -97,9 +100,12 @@ Route::prefix('api')->group(function () {
         Route::get('/personalizations/{personalization}', [PersonalizationController::class, 'show']);
         Route::put('/personalizations/{personalization}', [PersonalizationController::class, 'update']);
         Route::delete('/personalizations/{personalization}', [PersonalizationController::class, 'destroy']);
+        // Order controller
+        Route::get('/orders', [OrderController::class, 'index']);
+        Route::get('/orders/{order}', [OrderController::class, 'show']);
         // Size Controller
         	Route::put('/sizes/reorder', [SizeController::class, 'reorder']);
-	Route::apiResource('/sizes', SizeController::class)->whereNumber('size');
+	    Route::apiResource('/sizes', SizeController::class)->whereNumber('size');
 
         // Hero Controller
         Route::apiResource('/heroes', HeroController::class);
@@ -118,7 +124,9 @@ Route::prefix('api')->group(function () {
 
         // Personalizer Price Controller
         Route::apiResource('/personalizer-prices', PersonalizerPriceController::class);
-
+        
+        // Settings Controller
+        Route::apiResource('/settings', SettingsController::class);
         // Color Controller
         	Route::apiResource('/colors', ColorController::class);
 

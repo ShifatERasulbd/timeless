@@ -1,21 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import { readCart, writeCart } from '../../utils/cart';
 import { featuresFontClass } from '../../utils/typography';
-
-function readCart() {
-    try {
-        const raw = localStorage.getItem('timeless_cart');
-        const parsed = raw ? JSON.parse(raw) : [];
-        return Array.isArray(parsed) ? parsed : [];
-    } catch {
-        return [];
-    }
-}
-
-function writeCart(items) {
-    localStorage.setItem('timeless_cart', JSON.stringify(items));
-}
 
 export default function CartPage() {
     const navigate = useNavigate();

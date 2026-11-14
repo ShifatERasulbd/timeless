@@ -18,9 +18,7 @@ export default function ContactPage() {
             <LazySection heightClass="h-[520px]">
                 <ContactHeroSection />
             </LazySection>
-            <LazySection heightClass="h-[300px]">
-                <Features />
-            </LazySection>
+           
             <LazySection heightClass="h-[760px]">
                 <ContactSection />
             </LazySection>

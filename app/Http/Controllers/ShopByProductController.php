@@ -46,7 +46,7 @@ class ShopByProductController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $validated['image'] = $request->file('image')->store('shop_by_product_items', 'public');
+            $validated['image'] = $this->storeImage($request->file('image'));
         }
 
         $section = $this->resolveSection();
@@ -72,7 +72,7 @@ class ShopByProductController extends Controller
                $this->deleteImageIfExists($item->image);
             }
 
-            $validated['image'] = $request->file('image')->store('shop_by_product_items', 'public');
+            $validated['image'] = $this->storeImage($request->file('image'));
         }
 
         $item->update($validated);
@@ -110,9 +110,20 @@ class ShopByProductController extends Controller
         ]);
     }
 
+    private function storeImage($image): string
+    {
+        $directory = public_path('uploads/shop-by-product/');
+        File::ensureDirectoryExists($directory);
+
+        $name = time() . '_' . uniqid('shop_by_product_', true) . '.' . $image->getClientOriginalExtension();
+        $image->move($directory, $name);
+
+        return 'uploads/shop-by-product/' . $name;
+    }
+
     private function deleteImageIfExists($imagePath): void
     {
-        $fullPath = public_path('storage/' . $imagePath);
+        $fullPath = public_path($imagePath);
         if (File::exists($fullPath)) {
             File::delete($fullPath);
         }

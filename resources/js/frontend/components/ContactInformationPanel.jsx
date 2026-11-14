@@ -1,18 +1,10 @@
 import { Globe, MessageCircle, Play, Send } from 'lucide-react';
 
 const contactDetails = [
-    {
-        label: 'Office',
-        value: '70 Washington Square',
-        secondary: 'New York, NY 10012, USA',
-    },
-    {
-        label: 'Phone',
-        value: '(2) 123 -456 -789',
-    },
+   
     {
         label: 'Email',
-        value: 'hello@timeless.ca',
+        value: 'hello@timelessfashion.ca',
     },
 ];
 

@@ -10,6 +10,7 @@ const ShopPage = lazy(() => import('./frontend/pages/ShopPage.jsx'));
 const SingleProductPage = lazy(() => import('./frontend/pages/singleProduct.jsx'));
 const CartPage = lazy(() => import('./frontend/pages/CartPage.jsx'));
 const CheckoutPage = lazy(() => import('./frontend/pages/CheckoutPage.jsx'));
+const OrderConfirmationPage = lazy(() => import('./frontend/pages/OrderConfirmationPage.jsx'));
 const AboutPage = lazy(() => import('./frontend/pages/about.jsx'));
 const ContactPage = lazy(() => import('./frontend/pages/contact.jsx'));
 const AuthPage = lazy(() => import('./frontend/pages/Auth.jsx'));
@@ -33,6 +34,7 @@ function AppRouter() {
                     <Route path="singleProduct/:productSlug" element={withPageFallback(SingleProductPage)} />
                     <Route path="cart" element={withPageFallback(CartPage)} />
                     <Route path="checkout" element={withPageFallback(CheckoutPage)} />
+                    <Route path="order-confirmation" element={withPageFallback(OrderConfirmationPage)} />
                     <Route path="about" element={withPageFallback(AboutPage)} />
                     <Route path="contact" element={withPageFallback(ContactPage)} />
                     <Route path="login" element={withPageFallback(AuthPage)} />

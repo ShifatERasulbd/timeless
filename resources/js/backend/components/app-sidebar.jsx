@@ -24,6 +24,7 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
+import { readXsrfTokenFromCookie } from '@/lib/apiClient';
 
 const homeItems = [
     { title: 'Dashboard', icon: Gauge, path: '/admin/dashboard' },
@@ -51,6 +52,12 @@ const orderManagementItems = [
     { title: 'Personalization Orders', icon: Palette, path: '/admin/personalization/orders' },
     { title: 'Personalizer Prices', icon: Sparkles, path: '/admin/personalizer-prices' },
 ]
+
+const settings = [
+    { title: 'Settings', icon: Palette, path: '/admin/settings' },
+    
+]
+
 
 
 
@@ -88,6 +95,7 @@ export function AppSidebar(props) {
                 headers: {
                     Accept: 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
+                    'X-XSRF-TOKEN': readXsrfTokenFromCookie(),
                 },
             });
         } finally {
@@ -185,6 +193,31 @@ export function AppSidebar(props) {
                         <SidebarGroupContent>
                             <SidebarMenu>
                                 {orderManagementItems.map((item) => (
+                                    <SidebarMenuItem key={item.title}>
+                                        <SidebarMenuButton
+                                            asChild
+                                            tooltip={item.title}
+                                            isActive={isMenuItemActive(item.path)}
+                                        >
+                                            <Link to={item.path}>
+                                                <item.icon className="size-4 shrink-0 text-sidebar-foreground" />
+                                                <span>{item.title}</span>
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                ))}
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                )}
+
+
+                 {settings.length > 0 && (
+                    <SidebarGroup>
+                        <SidebarGroupLabel>Settings</SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                {settings.map((item) => (
                                     <SidebarMenuItem key={item.title}>
                                         <SidebarMenuButton
                                             asChild

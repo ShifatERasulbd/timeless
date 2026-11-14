@@ -12,6 +12,12 @@ async function ensureCsrfCookie() {
     }
 }
 
+// Laravel's CSRF middleware requires this header (decrypted against the XSRF-TOKEN cookie) on mutating requests.
+export function readXsrfTokenFromCookie() {
+    const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : '';
+}
+
 export async function requestJson(url, options = {}) {
     const { needsCsrf = false, headers = {}, ...fetchOptions } = options;
     const contentHeaders = typeof fetchOptions.body === 'string'
@@ -29,6 +35,7 @@ export async function requestJson(url, options = {}) {
             Accept: 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
             ...contentHeaders,
+            ...(needsCsrf ? { 'X-XSRF-TOKEN': readXsrfTokenFromCookie() } : {}),
             ...headers,
         },
     });

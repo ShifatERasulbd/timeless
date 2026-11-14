@@ -1,7 +1,9 @@
 import { Menu, Search, ShoppingCart, SlidersHorizontal, UserRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
+import useCartCount from '../hooks/useCartCount';
 import { timelessFontClass } from '../../utils/typography';
+import CartDropdown from './CartDropdown.jsx';
 
 const navigationItems = [
     { label: 'Best Sellers', href: '#best-sellers' },
@@ -38,6 +40,8 @@ const utilityIcons = [
 ];
 
 export default function Header() {
+    const cartCount = useCartCount();
+
     return (
         <header className={`${timelessFontClass} sticky top-0 z-50 w-full text-zinc-950`}>
             {/* Main Header Container */}
@@ -140,8 +144,28 @@ export default function Header() {
                         </a>
 
                         <div className="hidden items-center gap-1 md:flex">
-                            {utilityIcons.map(({ label, icon: Icon, href }) =>
-                                href.startsWith('/') ? (
+                            {utilityIcons.map(({ label, icon: Icon, href }) => {
+                                if (label === 'Cart') {
+                                    return (
+                                        <div key={label} className="group relative">
+                                            <Link
+                                                to={href}
+                                                aria-label={label}
+                                                className="relative inline-flex size-11 items-center justify-center rounded-full text-zinc-950 transition-colors hover:bg-zinc-200 hover:text-zinc-700"
+                                            >
+                                                <Icon className="size-5" strokeWidth={1.75} />
+                                                {cartCount > 0 ? (
+                                                    <span className="absolute right-1 top-1 flex size-4 items-center justify-center rounded-full bg-[#e65c00] text-[0.6rem] font-semibold leading-none text-white">
+                                                        {cartCount > 99 ? '99+' : cartCount}
+                                                    </span>
+                                                ) : null}
+                                            </Link>
+                                            <CartDropdown />
+                                        </div>
+                                    );
+                                }
+
+                                return href.startsWith('/') ? (
                                     <Link
                                         key={label}
                                         to={href}
@@ -159,8 +183,8 @@ export default function Header() {
                                     >
                                         <Icon className="size-5" strokeWidth={1.75} />
                                     </a>
-                                )
-                            )}
+                                );
+                            })}
                         </div>
 
                         <button

@@ -39,7 +39,7 @@ class ShpByProductItem extends Model
             return $this->image;
         }
 
-        return url('/storage/' . ltrim($this->image, '/'));
+        return url('/' . ltrim($this->image, '/'));
     }
 }
  

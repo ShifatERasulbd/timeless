@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
+import { readCart, writeCart } from '../../utils/cart';
 import { featuresFontClass } from '../../utils/typography';
 import SingleProductDetailsPanel from './SingleProductDetailsPanel.jsx';
 import SingleProductMediaGallery from './SingleProductMediaGallery.jsx';
@@ -224,11 +225,7 @@ export default function SingleProductMainSection() {
     }
 
     function saveToCart(item) {
-        const storageKey = 'timeless_cart';
-        const saved = localStorage.getItem(storageKey);
-        const parsedCart = saved ? JSON.parse(saved) : [];
-        const cart = Array.isArray(parsedCart) ? parsedCart : [];
-
+        const cart = readCart();
         const existingIndex = cart.findIndex((cartEntry) => cartEntry.id === item.id);
 
         if (existingIndex >= 0) {
@@ -237,7 +234,7 @@ export default function SingleProductMainSection() {
             cart.push(item);
         }
 
-        localStorage.setItem(storageKey, JSON.stringify(cart));
+        writeCart(cart);
         return cart;
     }
 

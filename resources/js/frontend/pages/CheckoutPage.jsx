@@ -1,7 +1,11 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useMemo, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { featuresFontClass } from '../../utils/typography';
+import { writeCart } from '../../utils/cart';
+import { createOrder } from '../api/ordersApi';
+
+const ORDER_STORAGE_KEY = 'timeless_last_order';
 
 function readCheckoutItems() {
     try {
@@ -22,7 +26,11 @@ function readCheckoutItems() {
 }
 
 export default function CheckoutPage() {
+    const navigate = useNavigate();
+    const formRef = useRef(null);
     const [items] = useState(() => readCheckoutItems());
+    const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+    const [placeOrderError, setPlaceOrderError] = useState('');
 
     const subtotal = useMemo(() => {
         return items.reduce((sum, item) => {
@@ -34,6 +42,58 @@ export default function CheckoutPage() {
     const shipping = items.length > 0 ? 10.0 : 0.0;
     const tax = Number((subtotal * 0.1).toFixed(2));
     const total = subtotal + (subtotal > 0 ? shipping + tax : 0);
+
+    function handlePlaceOrder(event) {
+        event.preventDefault();
+
+        const formData = new FormData(formRef.current);
+        const billing = Object.fromEntries(formData.entries());
+
+        setPlaceOrderError('');
+        setIsPlacingOrder(true);
+
+        createOrder({
+            ...billing,
+            subtotal,
+            shipping,
+            tax,
+            total,
+            items: items.map((item) => ({
+                id: item.id,
+                name: item.name,
+                image: item.image || null,
+                price: Number(String(item.price).replace(/[^0-9.]/g, '')) || 0,
+                quantity: item.quantity || 1,
+            })),
+        })
+            .then((savedOrder) => {
+                const order = {
+                    orderNumber: savedOrder.order_number,
+                    createdAt: savedOrder.created_at,
+                    items,
+                    subtotal,
+                    shipping,
+                    tax,
+                    total,
+                    billing,
+                };
+
+                try {
+                    sessionStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(order));
+                } catch {
+                    // ignore storage quota errors, order still passed via navigation state
+                }
+
+                writeCart([]);
+                localStorage.removeItem('timeless_checkout_now');
+
+                navigate('/order-confirmation', { state: { order } });
+            })
+            .catch((error) => {
+                setPlaceOrderError(error.message || 'Unable to place the order. Please try again.');
+                setIsPlacingOrder(false);
+            });
+    }
 
     return (
         <section className={`${featuresFontClass} bg-white px-5 py-10 sm:px-8 lg:px-12`}>
@@ -53,7 +113,7 @@ export default function CheckoutPage() {
                         <div className="space-y-6">
                             <h2 className="text-[1.25rem] font-medium uppercase tracking-wide text-zinc-900">Billing Details</h2>
 
-                            <form onSubmit={(e) => e.preventDefault()} className="space-y-5">
+                            <form id="checkout-form" ref={formRef} onSubmit={handlePlaceOrder} className="space-y-5">
                                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                                     <div>
                                         <label className="block text-[0.8rem] uppercase tracking-wider text-zinc-700 mb-1.5">
@@ -61,6 +121,7 @@ export default function CheckoutPage() {
                                         </label>
                                         <input
                                             type="text"
+                                            name="firstName"
                                             required
                                             className="w-full rounded-sm border border-zinc-300 bg-white px-3.5 py-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none"
                                         />
@@ -71,6 +132,7 @@ export default function CheckoutPage() {
                                         </label>
                                         <input
                                             type="text"
+                                            name="lastName"
                                             required
                                             className="w-full rounded-sm border border-zinc-300 bg-white px-3.5 py-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none"
                                         />
@@ -83,6 +145,7 @@ export default function CheckoutPage() {
                                     </label>
                                     <input
                                         type="text"
+                                        name="companyName"
                                         className="w-full rounded-sm border border-zinc-300 bg-white px-3.5 py-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none"
                                     />
                                 </div>
@@ -93,6 +156,7 @@ export default function CheckoutPage() {
                                     </label>
                                     <input
                                         type="text"
+                                        name="country"
                                         required
                                         className="w-full rounded-sm border border-zinc-300 bg-white px-3.5 py-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none"
                                     />
@@ -104,12 +168,14 @@ export default function CheckoutPage() {
                                     </label>
                                     <input
                                         type="text"
+                                        name="streetAddress"
                                         required
                                         placeholder="House number and street name"
                                         className="w-full rounded-sm border border-zinc-300 bg-white px-3.5 py-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none"
                                     />
                                     <input
                                         type="text"
+                                        name="apartment"
                                         placeholder="Apartment, suite, unit, etc. (optional)"
                                         className="w-full rounded-sm border border-zinc-300 bg-white px-3.5 py-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none"
                                     />
@@ -121,6 +187,7 @@ export default function CheckoutPage() {
                                     </label>
                                     <input
                                         type="text"
+                                        name="state"
                                         required
                                         className="w-full rounded-sm border border-zinc-300 bg-white px-3.5 py-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none"
                                     />
@@ -133,6 +200,7 @@ export default function CheckoutPage() {
                                         </label>
                                         <input
                                             type="text"
+                                            name="city"
                                             required
                                             className="w-full rounded-sm border border-zinc-300 bg-white px-3.5 py-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none"
                                         />
@@ -143,6 +211,7 @@ export default function CheckoutPage() {
                                         </label>
                                         <input
                                             type="text"
+                                            name="zip"
                                             required
                                             className="w-full rounded-sm border border-zinc-300 bg-white px-3.5 py-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none"
                                         />
@@ -155,6 +224,7 @@ export default function CheckoutPage() {
                                     </label>
                                     <input
                                         type="tel"
+                                        name="phone"
                                         required
                                         className="w-full rounded-sm border border-zinc-300 bg-white px-3.5 py-2.5 text-sm text-zinc-900 focus:border-zinc-900 focus:outline-none"
                                     />
@@ -212,11 +282,17 @@ export default function CheckoutPage() {
                             </div>
 
                             <button
-                                type="button"
-                                className="mt-6 w-full bg-[#E56338] py-3.5 text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#d0552e]"
+                                type="submit"
+                                form="checkout-form"
+                                disabled={isPlacingOrder}
+                                className="mt-6 w-full bg-[#E56338] py-3.5 text-xs font-semibold uppercase tracking-[0.18em] text-white transition-colors hover:bg-[#d0552e] disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                Place Order
+                                {isPlacingOrder ? 'Placing Order…' : 'Place Order'}
                             </button>
+
+                            {placeOrderError && (
+                                <p className="mt-3 text-center text-xs font-medium text-red-600">{placeOrderError}</p>
+                            )}
 
                             <p className="mt-4 text-[0.75rem] leading-relaxed text-zinc-500 text-center">
                                 Your personal data will be used to process your order, support your experience throughout this website, and for other purposes described in our privacy policy.
