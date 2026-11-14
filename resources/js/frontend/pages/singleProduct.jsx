@@ -4,6 +4,7 @@ import SectionSkeleton from '../components/SectionSkeleton.jsx';
 
 const SingleProductMainSection = lazy(() => import('../components/SingleProductMainSection.jsx'));
 const SingleProductInfoTabs = lazy(() => import('../components/SingleProductInfoTabs.jsx'));
+const ProductCustomizerSection = lazy(() => import('../components/ProductCustomizerSection.jsx'));
 const RelatedProductsSection = lazy(() => import('../components/RelatedProductsSection.jsx'));
 
 
@@ -19,6 +20,9 @@ export default function SingleProductPage() {
             </LazySection>
             <LazySection heightClass="h-[320px]">
                 <SingleProductInfoTabs />
+            </LazySection>
+            <LazySection heightClass="h-[720px]">
+                <ProductCustomizerSection />
             </LazySection>
             <LazySection heightClass="h-[640px]">
                 <RelatedProductsSection />

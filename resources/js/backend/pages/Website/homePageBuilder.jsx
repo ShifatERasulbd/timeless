@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/sheet';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { useAppContext } from '@/context/AppContext';
+import { fetchCategories } from '../Category/api.jsx';
 import { createFeature, deleteFeature, fetchFeatures, updateFeature } from '../Features/api';
 import { createHero, fetchHeroes, updateHero } from '../Hero/api';
 import {
@@ -298,6 +299,7 @@ export default function HomePageBuilder() {
 
     const [isLoadingIndustry, setIsLoadingIndustry] = useState(false);
     const [industryForm, setIndustryForm] = useState({ title: '', subtitle: '' });
+    const [categoryOptions, setCategoryOptions] = useState([]);
     const industry = useRepeaterItems();
 
     const [isLoadingHowWeHelp, setIsLoadingHowWeHelp] = useState(false);
@@ -382,12 +384,18 @@ export default function HomePageBuilder() {
     async function loadShopByIndustryForEditor() {
         setIsLoadingIndustry(true);
         try {
-            const payload = await fetchShopByIndustry();
+            const [payload, categories] = await Promise.all([
+                fetchShopByIndustry(),
+                // Categories only feed the card's dropdown; don't block the editor if they fail.
+                fetchCategories().catch(() => []),
+            ]);
+            setCategoryOptions(Array.isArray(categories) ? categories : []);
             setIndustryForm({ title: payload?.title || '', subtitle: payload?.subtitle || '' });
             industry.load(Array.isArray(payload?.items) ? payload.items : [], (item) => ({
                 key: `existing-industry-${item.id}`,
                 id: item.id,
                 title: item.title || '',
+                category_id: item.category_id ? String(item.category_id) : '',
                 image_url: item.image_url || null,
                 imageFile: null,
             }));
@@ -551,6 +559,7 @@ export default function HomePageBuilder() {
             key: `new-industry-${Date.now()}`,
             id: null,
             title: '',
+            category_id: '',
             image_url: null,
             imageFile: null,
         }));
@@ -707,6 +716,7 @@ export default function HomePageBuilder() {
                 deleteItem: deleteShopByIndustryItem,
                 buildPayload: (item, index) => ({
                     title: item.title || '',
+                    category_id: item.category_id || '',
                     image: item.imageFile instanceof File ? item.imageFile : null,
                     sort_order: index + 1,
                 }),
@@ -1004,7 +1014,7 @@ export default function HomePageBuilder() {
                             <RepeaterList
                                 items={industry.items}
                                 emptyLabel="No industry items yet. Click Add item."
-                                hint="Reorder cards by dragging. Each item has image + title."
+                                hint="Reorder cards by dragging. Each card opens the shop filtered by its category."
                                 onAdd={addIndustryItem}
                                 renderItem={(item, index) => (
                                     <RepeaterCard
@@ -1022,6 +1032,24 @@ export default function HomePageBuilder() {
                                             }
                                             placeholder="e.g. Uniforms & Sports Event"
                                         />
+                                        <div className="space-y-2">
+                                            <Label htmlFor={`industry-category-${item.key}`}>Category</Label>
+                                            <select
+                                                id={`industry-category-${item.key}`}
+                                                value={item.category_id}
+                                                onChange={(event) =>
+                                                    industry.updateField(item.key, 'category_id', event.target.value)
+                                                }
+                                                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                            >
+                                                <option value="">No category (opens all products)</option>
+                                                {categoryOptions.map((category) => (
+                                                    <option key={category.id} value={String(category.id)}>
+                                                        {category.name}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
                                         <FieldImage
                                             label="Card image"
                                             value={item.image_url}

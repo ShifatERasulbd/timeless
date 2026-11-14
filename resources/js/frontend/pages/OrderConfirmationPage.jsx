@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 
+import { cartItemLineTotal } from '../../utils/cart';
 import { featuresFontClass } from '../../utils/typography';
 
 const ORDER_STORAGE_KEY = 'timeless_last_order';
@@ -102,7 +103,7 @@ export default function OrderConfirmationPage() {
                                         <p className="text-xs text-zinc-500 mt-0.5">Qty: {item.quantity || 1}</p>
                                     </div>
                                     <p className="text-sm font-medium text-zinc-900">
-                                        ${(Number(String(item.price).replace(/[^0-9.]/g, '')) * (item.quantity || 1)).toFixed(2)}
+                                        ${cartItemLineTotal(item).toFixed(2)}
                                     </p>
                                 </div>
                             </div>

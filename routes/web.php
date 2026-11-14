@@ -13,6 +13,7 @@ use App\Http\Controllers\HowWeHelpController;
 use App\Http\Controllers\ShopByProductController;
 use App\Http\Controllers\ShopByIndustryController;
 use App\Http\Controllers\SubCategoryController;
+use App\Http\Controllers\GrandChildController;
 use App\Http\Controllers\StageController;
 use App\Http\Controllers\PersonalizerPriceController;
 use App\Http\Controllers\SizeController;
@@ -78,6 +79,7 @@ Route::prefix('api')->group(function () {
     Route::get('/public/how-we-help', [HowWeHelpController::class, 'publicShow']);
     Route::get('/public/shop-by-product', [ShopByProductController::class, 'publicShow']);
     Route::get('/public/shop-by-industry', [ShopByIndustryController::class, 'publicShow']);
+    Route::get('/public/categories', [CategoryController::class, 'publicIndex']);
     Route::get('/public/products', [ApiProductController::class, 'index']);
     Route::get('/public/products/{product:slug}', [ApiProductController::class, 'show']);
     Route::get('/public/customize-home-page', [\App\Http\Controllers\CustomizeHomeController::class, 'publicShow']);
@@ -118,6 +120,10 @@ Route::prefix('api')->group(function () {
 
         // SubCategory Controller
         Route::apiResource('/sub-categories', SubCategoryController::class);
+
+        // GrandChild Controller (reorder must be registered before the {grand_child} routes)
+        Route::put('/grand-childs/reorder', [GrandChildController::class, 'reorder']);
+        Route::apiResource('/grand-childs', GrandChildController::class)->whereNumber('grand_child');
 
         // stage Controller
         Route::apiResource('/stages', StageController::class);

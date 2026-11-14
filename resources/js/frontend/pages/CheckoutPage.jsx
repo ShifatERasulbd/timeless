@@ -2,7 +2,13 @@ import { useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { featuresFontClass } from '../../utils/typography';
-import { writeCart } from '../../utils/cart';
+import {
+    cartItemDesignPrice,
+    cartItemLineTotal,
+    cartItemUnitPrice,
+    orderTotals,
+    writeCart,
+} from '../../utils/cart';
 import { createOrder } from '../api/ordersApi';
 
 const ORDER_STORAGE_KEY = 'timeless_last_order';
@@ -32,16 +38,8 @@ export default function CheckoutPage() {
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
     const [placeOrderError, setPlaceOrderError] = useState('');
 
-    const subtotal = useMemo(() => {
-        return items.reduce((sum, item) => {
-            const value = Number(String(item.price).replace(/[^0-9.]/g, '')) || 0;
-            return sum + value * (item.quantity || 0);
-        }, 0);
-    }, [items]);
-
-    const shipping = items.length > 0 ? 10.0 : 0.0;
-    const tax = Number((subtotal * 0.1).toFixed(2));
-    const total = subtotal + (subtotal > 0 ? shipping + tax : 0);
+    // Same totals as the cart page: quantity price tiers plus any design charges.
+    const { subtotal, shipping, tax, total } = useMemo(() => orderTotals(items), [items]);
 
     function handlePlaceOrder(event) {
         event.preventDefault();
@@ -62,7 +60,8 @@ export default function CheckoutPage() {
                 id: item.id,
                 name: item.name,
                 image: item.image || null,
-                price: Number(String(item.price).replace(/[^0-9.]/g, '')) || 0,
+                // Per-unit price charged, including any design charge.
+                price: Number((cartItemUnitPrice(item) + cartItemDesignPrice(item)).toFixed(2)),
                 quantity: item.quantity || 1,
             })),
         })
@@ -254,7 +253,7 @@ export default function CheckoutPage() {
                                                 <p className="text-xs text-zinc-500 mt-0.5">Qty: {item.quantity || 1}</p>
                                             </div>
                                             <p className="text-sm font-medium text-zinc-900">
-                                                ${(Number(String(item.price).replace(/[^0-9.]/g, '')) * (item.quantity || 1)).toFixed(2)}
+                                                ${cartItemLineTotal(item).toFixed(2)}
                                             </p>
                                         </div>
                                     </div>

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
-import { readCart, writeCart } from '../../utils/cart';
+import { addCartItem, cartItemId, resolveUnitPrice } from '../../utils/cart';
 import { featuresFontClass } from '../../utils/typography';
 import SingleProductDetailsPanel from './SingleProductDetailsPanel.jsx';
 import SingleProductMediaGallery from './SingleProductMediaGallery.jsx';
@@ -61,22 +61,6 @@ function asList(value) {
 function toPlainText(value) {
     if (!value) return '';
     return new DOMParser().parseFromString(String(value), 'text/html').body.textContent?.trim() || '';
-}
-
-// Picks the price tier whose quantity range contains the selected quantity, preferring the
-// "Guest" status tier since the storefront has no logged-in customer accounts.
-function resolveUnitPrice(stagePrices, quantity, basePrice) {
-    if (!Array.isArray(stagePrices) || stagePrices.length === 0) return basePrice;
-
-    const matches = stagePrices.filter((row) => (
-        Number(quantity) >= Number(row.minimum_quantity)
-        && Number(quantity) <= Number(row.maximum_quantity)
-    ));
-
-    if (matches.length === 0) return basePrice;
-
-    const preferred = matches.find((row) => row.status === 'Guest') || matches[0];
-    return Number(preferred.price);
 }
 
 function normalizeProduct(payload, colorOptions, sizeOptions) {
@@ -213,30 +197,21 @@ export default function SingleProductMainSection() {
         const safeProductId = Number(resolvedProduct.id) || 0;
 
         return {
-            id: `${safeProductId || resolvedProduct.name}-${selectedColor}-${selectedSize}`,
+            id: cartItemId(safeProductId, resolvedProduct.name, selectedColor, selectedSize),
             productId: safeProductId,
             name: resolvedProduct.name,
             price: `$${unitPrice.toFixed(2)}`,
+            basePrice: resolvedProduct.basePrice ?? 0,
+            stagePrices: resolvedProduct.stagePrices ?? [],
             color: selectedColor,
+            colorValue: resolvedProduct.colors.find((color) => color.label === selectedColor)?.value ?? '',
             size: selectedSize,
             quantity,
             image: selectedImage,
         };
     }
 
-    function saveToCart(item) {
-        const cart = readCart();
-        const existingIndex = cart.findIndex((cartEntry) => cartEntry.id === item.id);
-
-        if (existingIndex >= 0) {
-            cart[existingIndex].quantity += item.quantity;
-        } else {
-            cart.push(item);
-        }
-
-        writeCart(cart);
-        return cart;
-    }
+    const saveToCart = addCartItem;
 
     function addToCart() {
         const cartItem = buildCartItem();

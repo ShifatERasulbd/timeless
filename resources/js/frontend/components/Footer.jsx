@@ -1,4 +1,4 @@
-import { timelessFontClass } from '../../utils/typography';
+import { footerFontClass } from '../../utils/typography';
 import { Link } from 'react-router-dom';
 
 const quickLinks = ['Home', 'About', 'Services', 'Single Item', 'Contact'];
@@ -69,15 +69,16 @@ function IconButton({ href, label, children }) {
 
 export default function Footer() {
     return (
-        <footer className={`${timelessFontClass} border-t border-zinc-200 bg-zinc-200 text-zinc-900`}>
+        <footer className={`${footerFontClass} border-t border-zinc-200 bg-zinc-200 text-zinc-900`}>
             <div className="w-full px-6 pb-10 pt-10 sm:px-8 lg:px-12 lg:pt-14">
                 <div className="grid gap-12 lg:grid-cols-[1.15fr_0.8fr_0.8fr_1fr] lg:gap-16 xl:grid-cols-[1.25fr_0.78fr_0.78fr_1fr]">
                     <section className="max-w-md space-y-5">
-                        <Link to="/" className="inline-flex text-3xl font-black tracking-[0.18em] text-black sm:text-[1.6rem]">
+                        {/* The wordmark keeps the site font so it matches the header logo. */}
+                        <Link to="/" className="inline-flex font-sans text-3xl font-black tracking-[0.18em] text-black sm:text-[1.6rem]">
                             TIMELESS
                         </Link>
 
-                        <p className="max-w-sm text-[1.05rem] leading-[1.5] text-zinc-600 sm:text-[.9rem]">
+                        <p className="max-w-sm text-[0.95rem] leading-7 tracking-[0.04em] text-zinc-700">
                             Welcome to Timeless Fashion, where quality meets creativity and every thread tells a story. Proudly Canadian and built on years of industry expertise, we’re more than just a textile company.
                         </p>
 
@@ -91,10 +92,10 @@ export default function Footer() {
                     </section>
 
                     <nav aria-label="Quick links" className="space-y-4">
-                        <h2 className="font-serif text-[2rem] font-normal uppercase tracking-[0.06em] text-zinc-900 sm:text-[1.5rem]">
+                        <h2 className="text-[1.15rem] font-normal tracking-[0.02em] text-zinc-950">
                             Quick Links
                         </h2>
-                        <ul className="space-y-1 text-[1.03rem] uppercase tracking-[0.12em] text-zinc-950 sm:text-[.8rem]">
+                        <ul className="space-y-3 text-[0.85rem] tracking-[0.08em] text-zinc-800">
                             {quickLinks.map((item) => (
                                 <li key={item}>
                                     <a href={`#${item.toLowerCase().replace(/\s+/g, '-')}`} className="transition-colors hover:text-zinc-500">
@@ -106,10 +107,10 @@ export default function Footer() {
                     </nav>
 
                     <nav aria-label="Help and info" className="space-y-4">
-                        <h2 className="font-serif text-[2rem] font-normal uppercase tracking-[0.06em] text-zinc-900 sm:text-[1.5rem]">
+                        <h2 className="text-[1.15rem] font-normal tracking-[0.02em] text-zinc-950">
                             Help &amp; Info
                         </h2>
-                        <ul className="space-y-1 text-[1.03rem] uppercase tracking-[0.12em] text-zinc-950 sm:text-[.8rem]">
+                        <ul className="space-y-3 text-[0.85rem] tracking-[0.08em] text-zinc-800">
                             {helpLinks.map((item) => (
                                 <li key={item}>
                                     <a href={`#${item.toLowerCase().replace(/\s+/g, '-')}`} className="transition-colors hover:text-zinc-500">
@@ -121,11 +122,11 @@ export default function Footer() {
                     </nav>
 
                     <section className="space-y-4">
-                        <h2 className="font-serif text-[2rem] font-normal uppercase tracking-[0.06em] text-zinc-900 sm:text-[1.5rem]">
+                        <h2 className="text-[1.15rem] font-normal tracking-[0.02em] text-zinc-950">
                             Contact Us
                         </h2>
 
-                        <div className="space-y-5 text-[1.05rem] leading-[1.45] text-zinc-700 sm:text-[.9rem]">
+                        <div className="space-y-5 text-[0.95rem] leading-7 tracking-[0.04em] text-zinc-700">
                             <p>
                                 Do you have any questions or suggestions?
                                 <br />
@@ -152,18 +153,18 @@ export default function Footer() {
             </div>
 
             <div className="border-t border-zinc-200">
-                <div className="flex w-full flex-col gap-6 px-6 py-5 text-[0.85rem] text-zinc-600 sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:px-12">
+                <div className="flex w-full flex-col gap-6 px-6 py-5 text-[0.8rem] tracking-[0.04em] text-zinc-600 sm:px-8 lg:flex-row lg:items-center lg:justify-between lg:px-12">
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
                         <div className="flex items-center gap-3">
                             <span>We ship with:</span>
-                            <span className="text-[1.05rem] font-semibold tracking-[0.2em] text-zinc-400">DHL</span>
+                            <span className="font-sans text-[1.05rem] font-semibold tracking-[0.2em] text-zinc-400">DHL</span>
                         </div>
 
                         <div className="flex items-center gap-3">
                             <span>Payment options:</span>
                             <div className="flex items-center gap-2">
                                 {paymentMarks.map((mark) => (
-                                    <span key={mark} className="inline-flex h-5 items-center rounded bg-zinc-300 px-1.5 text-[0.62rem] font-semibold tracking-[0.12em] text-white">
+                                    <span key={mark} className="inline-flex h-5 items-center rounded bg-zinc-300 px-1.5 font-sans text-[0.62rem] font-semibold tracking-[0.12em] text-white">
                                         {mark}
                                     </span>
                                 ))}
@@ -171,7 +172,7 @@ export default function Footer() {
                         </div>
                     </div>
 
-                    <p className="text-center text-[0.85rem] leading-6 text-zinc-600 lg:text-right">
+                    <p className="text-center text-[0.8rem] leading-6 text-zinc-600 lg:text-right">
                         © Copyright 2026 Timeless.ca. All rights reserved. 
                     </p>
                 </div>

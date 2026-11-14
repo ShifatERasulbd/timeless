@@ -16,6 +16,45 @@ class CategoryController extends Controller
         return response()->json($categories);
     }
 
+    /**
+     * Storefront navigation: every category with its sub-categories (names + slugs only).
+     */
+    public function publicIndex(): JsonResponse
+    {
+        $categories = Category::query()
+            ->with([
+                'subCategories' => fn ($query) => $query->select('id', 'name', 'slug', 'category_id')->orderBy('id'),
+                // Same order as the drag-and-drop list in the GrandChild admin.
+                'subCategories.grandChilds' => fn ($query) => $query
+                    ->select('id', 'name', 'slug', 'sub_category_id')
+                    ->orderBy('position')
+                    ->orderBy('id'),
+            ])
+            ->orderBy('id')
+            ->get(['id', 'name', 'slug'])
+            ->map(fn (Category $category): array => [
+                'id' => $category->id,
+                'name' => $category->name,
+                'slug' => $category->slug,
+                'sub_categories' => $category->subCategories
+                    ->map(fn ($subCategory): array => [
+                        'id' => $subCategory->id,
+                        'name' => $subCategory->name,
+                        'slug' => $subCategory->slug,
+                        'grand_childs' => $subCategory->grandChilds
+                            ->map(fn ($grandChild): array => [
+                                'id' => $grandChild->id,
+                                'name' => $grandChild->name,
+                                'slug' => $grandChild->slug,
+                            ])
+                            ->values(),
+                    ])
+                    ->values(),
+            ]);
+
+        return response()->json($categories);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated =$request->validate([

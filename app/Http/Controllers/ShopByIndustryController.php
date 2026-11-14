@@ -12,7 +12,7 @@ class ShopByIndustryController extends Controller
 {
     public function publicShow(): JsonResponse
     {
-        $section = $this->resolveSection()->load('items');
+        $section = $this->resolveSection()->load('items.category:id,name,slug');
 
         return response()->json([
             'id' => $section->id,
@@ -24,7 +24,7 @@ class ShopByIndustryController extends Controller
 
     public function show(): JsonResponse
     {
-        $section = $this->resolveSection()->load('items');
+        $section = $this->resolveSection()->load('items.category:id,name,slug');
 
         return response()->json([
             'id' => $section->id,
@@ -54,6 +54,7 @@ class ShopByIndustryController extends Controller
     {
         $validated = $request->validate([
             'title' => ['nullable', 'string', 'max:255'],
+            'category_id' => ['nullable', 'integer', 'exists:categories,id'],
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:4096'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ]);
@@ -66,17 +67,19 @@ class ShopByIndustryController extends Controller
 
         $item = $section->items()->create([
             'title' => $validated['title'] ?? '',
+            'category_id' => $validated['category_id'] ?? null,
             'image' => $validated['image'] ?? null,
             'sort_order' => (int) ($validated['sort_order'] ?? ($section->items()->max('sort_order') + 1)),
         ]);
 
-        return response()->json($item->fresh(), 201);
+        return response()->json($item->fresh('category:id,name,slug'), 201);
     }
 
     public function updateItem(Request $request, ShopByIndustryItem $item): JsonResponse
     {
         $validated = $request->validate([
             'title' => ['nullable', 'string', 'max:255'],
+            'category_id' => ['nullable', 'integer', 'exists:categories,id'],
             'image' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif,webp', 'max:4096'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ]);
@@ -91,11 +94,13 @@ class ShopByIndustryController extends Controller
 
         $item->update([
             'title' => $validated['title'] ?? $item->title,
+            // Only touch the category when the request sends it, so an empty value clears it.
+            'category_id' => array_key_exists('category_id', $validated) ? $validated['category_id'] : $item->category_id,
             'image' => $validated['image'] ?? $item->image,
             'sort_order' => (int) ($validated['sort_order'] ?? $item->sort_order),
         ]);
 
-        return response()->json($item->fresh());
+        return response()->json($item->fresh('category:id,name,slug'));
     }
 
     public function destroyItem(ShopByIndustryItem $item): JsonResponse

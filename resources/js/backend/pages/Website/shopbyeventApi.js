@@ -56,6 +56,8 @@ export async function createShopByIndustryItem(data = {}) {
 
     const formData = new FormData();
     formData.append('title', data.title || '');
+    // Empty string clears the link; the server converts it to null.
+    formData.append('category_id', data.category_id ? String(data.category_id) : '');
     formData.append('sort_order', String(data.sort_order ?? 0));
 
     if (data.image instanceof File) {
@@ -74,6 +76,8 @@ export async function updateShopByIndustryItem(id, data = {}) {
     const formData = new FormData();
     formData.append('_method', 'PUT');
     formData.append('title', data.title || '');
+    // Empty string clears the link; the server converts it to null.
+    formData.append('category_id', data.category_id ? String(data.category_id) : '');
     formData.append('sort_order', String(data.sort_order ?? 0));
 
     if (data.image instanceof File) {

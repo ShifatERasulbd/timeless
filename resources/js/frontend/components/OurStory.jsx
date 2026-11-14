@@ -1,4 +1,7 @@
+import { useRef } from 'react';
+
 import { useAboutPageSection } from '../hooks/useAboutPageSection.js';
+import { useScrollRevealText } from '../hooks/useScrollRevealText.js';
 
 export default function TimelessAboutSection() {
     const section = useAboutPageSection('story', {
@@ -6,9 +9,24 @@ export default function TimelessAboutSection() {
         description: '<p>Timeless Fashion was built with a vision to combine quality craftsmanship with modern personalization.</p>',
         image_url: '/uploads/heroes/images/hero1.webp',
     });
+    const descriptionRef = useRef(null);
+
+    // Darkens the story text character by character as it scrolls up the screen.
+    useScrollRevealText(descriptionRef, section.description, { charClassName: 'story-reveal-char' });
 
     return (
         <section id="about-story-section" className="bg-white py-14 sm:py-16 lg:py-20">
+            <style>{`
+                #about-story-section .story-reveal-char {
+                    color: #a1a1aa;
+                    -webkit-text-stroke: 0.35px transparent;
+                    transition: color 0.3s ease, -webkit-text-stroke-color 0.3s ease;
+                }
+                #about-story-section .story-reveal-char.is-revealed {
+                    color: #18181b;
+                    -webkit-text-stroke-color: #18181b;
+                }
+            `}</style>
             <div className="mx-auto w-full max-w-[1540px] px-5 sm:px-8 lg:px-12">
                 {/* Changed inner marked container to a clear gray background */}
                 <div className="bg-[#ececec] px-5 py-6 sm:px-10 sm:py-10 lg:px-14 lg:py-12">
@@ -23,6 +41,7 @@ export default function TimelessAboutSection() {
                             </h2>
 
                             <div
+                                ref={descriptionRef}
                                 className="mt-6 max-w-[42ch] space-y-4 text-[1rem] leading-8 text-slate-600 sm:text-[1.06rem]"
                                 dangerouslySetInnerHTML={{ __html: section.description }}
                             />

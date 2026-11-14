@@ -1,14 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { CART_UPDATED_EVENT, readCart, writeCart } from '../../utils/cart';
-
-function computeTotal(items) {
-    return items.reduce((sum, item) => {
-        const value = Number(String(item.price).replace(/[^0-9.]/g, '')) || 0;
-        return sum + value * (item.quantity || 0);
-    }, 0);
-}
+import { CART_UPDATED_EVENT, readCart, summarizeCart, writeCart } from '../../utils/cart';
 
 export default function CartDropdown() {
     const [items, setItems] = useState(() => readCart());
@@ -33,11 +26,11 @@ export default function CartDropdown() {
         setItems(next);
     }
 
-    const total = computeTotal(items);
+    const total = summarizeCart(items).total;
 
     return (
         // Padding-top keeps the hover area contiguous with the trigger icon (no dead gap).
-        <div className="invisible absolute right-0 top-full z-50 max-h-0 w-[340px] overflow-hidden pt-3 opacity-0 transition-[max-height,opacity] duration-300 ease-out group-hover:visible group-hover:max-h-[480px] group-hover:opacity-100">
+        <div className="invisible absolute right-0 top-full z-50 max-h-0 w-[340px] overflow-hidden pt-3 opacity-0 transition-[max-height,opacity] duration-300 ease-out group-focus-within:visible group-focus-within:max-h-[480px] group-focus-within:opacity-100 group-hover:visible group-hover:max-h-[480px] group-hover:opacity-100">
             <div className="border border-zinc-200 bg-white p-4 text-left shadow-[0_18px_60px_rgba(0,0,0,0.12)]">
                 {items.length === 0 ? (
                     <p className="py-6 text-center text-sm text-zinc-500">Your cart is empty.</p>

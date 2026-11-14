@@ -140,8 +140,15 @@ export default function SingleProductDetailsPanel({
                         Buy Now
                     </button>
 
+                    {/* Jumps to the customizer under the description on this page. */}
                     <a
-                        href={`/personalizer/features?product=${encodeURIComponent(productSlug || product.slug || product.id || '')}`}
+                        href="#customize"
+                        onClick={(event) => {
+                            const section = document.getElementById('customize');
+                            if (!section) return;
+                            event.preventDefault();
+                            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
                         className="inline-flex h-[50px] flex-1 min-w-[220px] items-center justify-center bg-[#4f3ed8] text-[0.95rem] font-semibold uppercase tracking-[0.08em] text-white"
                     >
                         Start Customizing

@@ -66,4 +66,19 @@ class Product extends Model
             'show_on_best_sellers' => 'boolean',
         ];
     }
+
+    public function category()
+    {
+        return $this->belongsTo(Category::class);
+    }
+
+    public function subCategory()
+    {
+        return $this->belongsTo(SubCategory::class, 'subcategory_id');
+    }
+
+    public function grandChild()
+    {
+        return $this->belongsTo(GrandChilds::class, 'grand_child_id');
+    }
 }

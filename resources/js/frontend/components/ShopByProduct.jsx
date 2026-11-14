@@ -81,7 +81,7 @@ export default function ShopByProduct() {
                     </div>
 
                     <Link
-                        to="/"
+                        to="/shop"
                         className="inline-flex items-center self-start whitespace-nowrap border-b border-zinc-400 pb-1 text-[0.85rem] font-medium uppercase tracking-[0.15em] text-zinc-700 transition-colors hover:text-zinc-950"
                     >
                         View all products

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Color;
 use App\Models\Product;
+use App\Models\Size;
 use App\Models\Stage;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
@@ -16,6 +17,7 @@ class ApiProductController extends Controller
     public function index(): JsonResponse
     {
         $query = Product::query()
+            ->with(['category:id,name,slug', 'subCategory:id,name,slug', 'grandChild:id,name,slug'])
             ->orderBy('name');
 
         if (Schema::hasColumn('products', 'size')) {
@@ -36,7 +38,7 @@ class ApiProductController extends Controller
 
     public function show(Product $product): JsonResponse
     {
-        return response()->json($this->formatProduct($product));
+        return response()->json($this->formatProduct($product->loadMissing(['category:id,name,slug', 'subCategory:id,name,slug', 'grandChild:id,name,slug'])));
     }
 
     public function sync(): JsonResponse
@@ -332,6 +334,30 @@ class ApiProductController extends Controller
             'product_name' => $product->name,
             'slug' => $product->slug,
             'sku' => $product->sku,
+            'category_id' => $product->category_id,
+            'category' => $product->category
+                ? [
+                    'id' => $product->category->id,
+                    'name' => $product->category->name,
+                    'slug' => $product->category->slug,
+                ]
+                : null,
+            'subcategory_id' => $product->subcategory_id,
+            'subcategory' => $product->subCategory
+                ? [
+                    'id' => $product->subCategory->id,
+                    'name' => $product->subCategory->name,
+                    'slug' => $product->subCategory->slug,
+                ]
+                : null,
+            'grand_child_id' => $product->grand_child_id,
+            'grand_child' => $product->grandChild
+                ? [
+                    'id' => $product->grandChild->id,
+                    'name' => $product->grandChild->name,
+                    'slug' => $product->grandChild->slug,
+                ]
+                : null,
             'available_products' => $product->available_products,
             'barcode' => $product->barcode,
             'color' => $color,
@@ -342,6 +368,7 @@ class ApiProductController extends Controller
                 ? array_values(array_filter($product->available_products['size_variants']))
                 : ($size !== null ? [$size] : []),
             'size_variant' => $this->buildPrimarySizeVariant($size),
+            'size_options' => $this->buildSizeOptions($size, $product->variant_rows ?? []),
             'description' => $product->description,
             'long_description' => $product->long_description,
             'fit' => $product->fit,
@@ -482,6 +509,47 @@ class ApiProductController extends Controller
                     'value' => $match?->color_code ?? $this->resolveColorCode($name) ?? '#cccccc',
                 ];
             })
+            ->all();
+    }
+
+    /** @var array<string, array{label: string, position: int}>|null Size id => label, loaded once per request. */
+    private ?array $sizeLookup = null;
+
+    /**
+     * Readable sizes for storefront filters: the product's stored size tokens (usually Size ids)
+     * plus any sizes used in its variant rows, resolved to labels and ordered like the Size admin.
+     */
+    private function buildSizeOptions(array|string|null $size, array $variantRows): array
+    {
+        $tokens = is_array($size) ? $size : (is_string($size) && $size !== '' ? [$size] : []);
+        foreach ($variantRows as $row) {
+            if (is_array($row) && isset($row['size'])) {
+                $tokens[] = $row['size'];
+            }
+        }
+
+        $tokens = array_values(array_unique(array_filter(
+            array_map(fn ($token) => is_scalar($token) ? trim((string) $token) : '', $tokens),
+            fn (string $token) => $token !== '',
+        )));
+
+        if ($tokens === []) {
+            return [];
+        }
+
+        $this->sizeLookup ??= Size::query()
+            ->get(['id', 'Size as label', 'position'])
+            ->mapWithKeys(fn (Size $item) => [(string) $item->id => ['label' => (string) $item->label, 'position' => (int) $item->position]])
+            ->all();
+
+        return collect($tokens)
+            ->map(fn (string $token) => [
+                'token' => $token,
+                'label' => $this->sizeLookup[$token]['label'] ?? $token,
+                'position' => $this->sizeLookup[$token]['position'] ?? PHP_INT_MAX,
+            ])
+            ->sortBy('position')
+            ->values()
             ->all();
     }
 

@@ -145,16 +145,18 @@ export default function Features() {
                                 className={`feature-card${itemsReady ? ' feature-card--ready' : ''} mx-auto max-w-sm text-center`}
                                 style={{ '--feature-card-delay': cardDelay }}
                             >
-                                <div className="mb-4 flex justify-center text-amber-700">
-                                    {feature.icon_url ? (
-                                        <img
-                                            src={feature.icon_url}
-                                            alt={feature.title || 'Feature icon'}
-                                            className="size-6 object-contain"
-                                        />
-                                    ) : (
-                                        <span className="inline-flex size-2 rounded-full bg-amber-700" />
-                                    )}
+                                <div className="mb-5 flex justify-center">
+                                    <span className="inline-flex size-20 items-center justify-center rounded-full bg-[#e65c00]/10 ring-1 ring-[#e65c00]/25">
+                                        {feature.icon_url ? (
+                                            <img
+                                                src={feature.icon_url}
+                                                alt={feature.title || 'Feature icon'}
+                                                className="size-14 object-contain [filter:drop-shadow(0_0_0.6px_#e65c00)_drop-shadow(0_0_0.6px_#e65c00)]"
+                                            />
+                                        ) : (
+                                            <span className="inline-flex size-3.5 rounded-full bg-[#e65c00]" />
+                                        )}
+                                    </span>
                                 </div>
 
                                 <h3 className="feature-title text-[1.35rem] font-normal tracking-wide text-zinc-900">

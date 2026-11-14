@@ -49,6 +49,17 @@ export default function ConfirmOrder() {
     const [isPlacing, setIsPlacing] = useState(false);
     const [isPlaced, setIsPlaced] = useState(false);
 
+    // Back to where the design was made: the storefront product page (full page load, it's a
+    // different app) or the standalone editor for the same product.
+    const editDesign = () => {
+        const editUrl = orderDetails?.editUrl || '/personalizer/features';
+        if (editUrl.startsWith('/personalizer/')) {
+            navigate(editUrl);
+        } else {
+            window.location.assign(editUrl);
+        }
+    };
+
     const handlePlaceOrder = async () => {
         if (!orderDetails?.id) {
             toast.error('Order reference is missing. Please go back and try again.');
@@ -193,7 +204,7 @@ export default function ConfirmOrder() {
                             >
                                 Preview mockups
                             </Button>
-                            <Button type="button" variant="outline" disabled={isPlacing} onClick={() => navigate('/personalizer/features')}>
+                            <Button type="button" variant="outline" disabled={isPlacing} onClick={editDesign}>
                                 Edit design
                             </Button>
                             <Button type="button" disabled={isPlacing} onClick={handlePlaceOrder}>

@@ -6,10 +6,16 @@ import { featuresFontClass } from '../../utils/typography';
 // Stagger between each industry card starting its fade-in.
 const CARD_STAGGER_MS = 180;
 
-function IndustryCard({ title, image, ready, delayMs }) {
+// Cards linked to a category open the shop filtered by it; unlinked cards open the full shop.
+function industryShopPath(category) {
+    return category?.slug ? `/shop?category=${encodeURIComponent(category.slug)}` : '/shop';
+}
+
+function IndustryCard({ title, image, category, ready, delayMs }) {
     return (
-        <article
-            className={`industry-card${ready ? ' industry-card--ready' : ''} group relative aspect-[3/5] w-full overflow-hidden bg-zinc-200`}
+        <Link
+            to={industryShopPath(category)}
+            className={`industry-card${ready ? ' industry-card--ready' : ''} group relative block aspect-[3/5] w-full overflow-hidden bg-zinc-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white`}
             style={{ '--industry-card-delay': `${delayMs}ms` }}
         >
             {image ? (
@@ -26,7 +32,7 @@ function IndustryCard({ title, image, ready, delayMs }) {
                     {title || ''}
                 </h3>
             </div>
-        </article>
+        </Link>
     );
 }
 
@@ -140,7 +146,7 @@ export default function ShopByIndustry() {
                     </div>
 
                     <Link
-                        to="/"
+                        to="/shop"
                         className="inline-flex items-center self-start whitespace-nowrap border-b border-zinc-400 pb-1 text-[0.85rem] font-medium uppercase tracking-[0.15em] text-zinc-700 transition-colors hover:text-zinc-950"
                     >
                         View all products
@@ -155,6 +161,7 @@ export default function ShopByIndustry() {
                             key={item.id}
                             title={item.title}
                             image={item.image_url || item.image}
+                            category={item.category}
                             ready={itemsReady}
                             delayMs={index * CARD_STAGGER_MS}
                         />

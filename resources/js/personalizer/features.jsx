@@ -248,6 +248,11 @@ const CANVAS_DRAFT_STORAGE_KEY = 'personalizer:canvasDraft';
 const PENDING_ORDER_STORAGE_KEY = 'personalizer:pendingOrder';
 const IMAGE_LAYERS_STORAGE_KEY = 'personalizer:imageLayersDraft';
 
+// Canvas drafts are kept per product, so a design started on one product doesn't appear on another.
+function productDraftKey(baseKey, productSlug) {
+    return productSlug ? `${baseKey}:${productSlug}` : baseKey;
+}
+
 // Cached base64 previews can be several MB each (2x-scaled PNGs for both views), which can push
 // the combined payload past the browser's storage quota. Try the full payload first (so previews
 // render instantly without waiting on the server-hosted URLs); if that throws, fall back to a
@@ -344,9 +349,9 @@ function normalizeSnapshotImageSources(snapshot) {
     return didChange ? JSON.stringify(parsed) : snapshot;
 }
 
-function readStoredImageLayerDrafts() {
+function readStoredImageLayerDrafts(storageKey = IMAGE_LAYERS_STORAGE_KEY) {
     try {
-        const storedLayers = localStorage.getItem(IMAGE_LAYERS_STORAGE_KEY);
+        const storedLayers = localStorage.getItem(storageKey);
         if (!storedLayers) return [];
 
         const parsed = JSON.parse(storedLayers);
@@ -385,10 +390,16 @@ function normalizeColorForInput(value, fallback = '#ffffff') {
     return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
-export default function Features() {
+/**
+ * Product customizer. Standalone at /personalizer/features?product=<slug>, or embedded on the
+ * storefront product page with `productSlug` and `embedded` props.
+ */
+export default function Features({ productSlug: productSlugProp, embedded = false } = {}) {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const productSlug = searchParams.get('product');
+    const productSlug = productSlugProp || searchParams.get('product');
+    const canvasDraftKey = productDraftKey(CANVAS_DRAFT_STORAGE_KEY, productSlug);
+    const imageLayersDraftKey = productDraftKey(IMAGE_LAYERS_STORAGE_KEY, productSlug);
     const canvasRef = useRef(null);
     const fabricRef = useRef(null);
     const productRef = useRef(null);
@@ -881,18 +892,18 @@ export default function Features() {
             .filter((layer) => typeof layer.imageSource === 'string' && layer.imageSource.length > 0);
 
         if (imageLayers.length === 0) {
-            localStorage.removeItem(IMAGE_LAYERS_STORAGE_KEY);
+            localStorage.removeItem(imageLayersDraftKey);
             return;
         }
 
-        localStorage.setItem(IMAGE_LAYERS_STORAGE_KEY, JSON.stringify(imageLayers));
+        localStorage.setItem(imageLayersDraftKey, JSON.stringify(imageLayers));
     };
 
     const restoreImageLayerDrafts = async () => {
         const canvas = getCanvas();
         if (!canvas) return;
 
-        const cachedLayers = readStoredImageLayerDrafts();
+        const cachedLayers = readStoredImageLayerDrafts(imageLayersDraftKey);
         if (cachedLayers.length === 0) return;
 
         const existingObjectIds = new Set(
@@ -984,7 +995,7 @@ export default function Features() {
         updateHistoryFlags();
 
         try {
-            localStorage.setItem(CANVAS_DRAFT_STORAGE_KEY, snapshot);
+            localStorage.setItem(canvasDraftKey, snapshot);
             persistImageLayerDrafts();
         } catch {
             // Ignore storage quota failures and keep in-memory history working.
@@ -1341,7 +1352,7 @@ export default function Features() {
         hasInitializedRef.current = true;
 
         const initialize = async () => {
-            const persistedSnapshot = localStorage.getItem(CANVAS_DRAFT_STORAGE_KEY);
+            const persistedSnapshot = localStorage.getItem(canvasDraftKey);
 
             if (persistedSnapshot) {
                 try {
@@ -1351,7 +1362,7 @@ export default function Features() {
                     await restoreHistorySnapshot(normalizedSnapshot);
                     return;
                 } catch {
-                    localStorage.removeItem(CANVAS_DRAFT_STORAGE_KEY);
+                    localStorage.removeItem(canvasDraftKey);
                     historyRef.current = [];
                     redoRef.current = [];
                 }
@@ -2196,6 +2207,10 @@ export default function Features() {
                 productColor,
                 view: activeViewRef.current,
                 createdAt: new Date().toISOString(),
+                // Where "Edit design" returns to: the product page when embedded, else this editor.
+                editUrl: embedded
+                    ? `${window.location.pathname}#customize`
+                    : `/personalizer/features${productSlug ? `?product=${encodeURIComponent(productSlug)}` : ''}`,
             };
 
             persistPendingOrder(orderDetails);
@@ -2209,26 +2224,29 @@ export default function Features() {
         }
     };
 
+    // The confirm/mockup pages belong to the personalizer app. When embedded in the storefront
+    // they need a full page load; they read the order that handleSaveOrderDesign stored.
+    const goToPersonalizerPage = (path, orderDetails) => {
+        if (embedded) {
+            window.location.assign(path);
+            return;
+        }
+
+        navigate(path, { state: { orderDetails } });
+    };
+
     const handleOrderNow = async () => {
         const orderDetails = await handleSaveOrderDesign();
         if (!orderDetails) return;
 
-        navigate('/personalizer/confirm-order', {
-            state: {
-                orderDetails,
-            },
-        });
+        goToPersonalizerPage('/personalizer/confirm-order', orderDetails);
     };
 
     const handlePreviewMockups = async () => {
         const orderDetails = await handleSaveOrderDesign();
         if (!orderDetails) return;
 
-        navigate('/personalizer/mockup-preview', {
-            state: {
-                orderDetails,
-            },
-        });
+        goToPersonalizerPage('/personalizer/mockup-preview', orderDetails);
     };
 
     const handleShare = async () => {
@@ -2280,7 +2298,7 @@ export default function Features() {
 
     const selectedColor = productColors.find((color) => color.id === productColor) || productColors[0];
     return (
-        <div className="min-h-screen bg-[#f7f5ef] text-zinc-950">
+        <div className={`${embedded ? '' : 'min-h-screen'} bg-[#f7f5ef] text-zinc-950`}>
             <input
                 ref={fileInputRef}
                 type="file"
@@ -2290,8 +2308,9 @@ export default function Features() {
                 onChange={handleDesignUpload}
             />
 
-            <div className="mx-auto flex min-h-screen max-w-[1600px] flex-col px-4 py-4 lg:px-6 xl:px-8">
+            <div className={`mx-auto flex max-w-[1600px] flex-col px-4 py-4 lg:px-6 xl:px-8 ${embedded ? '' : 'min-h-screen'}`}>
                 <PageHeader
+                    showBackLink={!embedded}
                     isSaving={isSaving}
                     onSaveDesign={handleSaveOrderDesign}
                     onShare={handleShare}
