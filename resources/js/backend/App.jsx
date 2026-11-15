@@ -53,8 +53,13 @@ const PersonalizationOrders = lazyWithRetry(() => import('@/pages/Personalizatio
 const ViewPersonalizationOrder = lazyWithRetry(() => import('@/pages/Personalization/viewOrder'), 'personalization-order-view');
 const EditPersonalizationOrder = lazyWithRetry(() => import('@/pages/Personalization/editOrder'), 'personalization-order-edit');
 
+// Storefront Orders
+const Orders = lazyWithRetry(() => import('@/pages/Orders/orders'), 'orders');
+const ViewOrder = lazyWithRetry(() => import('@/pages/Orders/viewOrder'), 'order-view');
+const EditOrder = lazyWithRetry(() => import('@/pages/Orders/editOrder'), 'order-edit');
+
 // Color Management
-const Colors = lazyWithRetry(() => import('@/pages/Color/color'), 'colors');
+const Colors =lazyWithRetry(() => import('@/pages/Color/color'), 'colors');
 const AddColor = lazyWithRetry(() => import('@/pages/Color/addColor'), 'add-color');
 const EditColor = lazyWithRetry(() => import('@/pages/Color/editColor'), 'edit-color');
 
@@ -138,6 +143,11 @@ export default function App() {
                             <Route path="hero" element={<Heroes />} />
                             <Route path="hero/add" element={<AddHero />} />
                             <Route path="hero/:id/edit" element={<EditHero />} />
+
+                            {/* Storefront Orders */}
+                            <Route path="orders" element={<Orders />} />
+                            <Route path="orders/:id" element={<ViewOrder />} />
+                            <Route path="orders/:id/edit" element={<EditOrder />} />
 
                             {/* Personalization Orders */}
                             <Route path="personalization/orders" element={<PersonalizationOrders />} />

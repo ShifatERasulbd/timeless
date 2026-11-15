@@ -2,18 +2,31 @@ import { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { CheckCircle2 } from 'lucide-react';
 
-import { cartItemLineTotal } from '../../utils/cart';
 import { featuresFontClass } from '../../utils/typography';
-
-const ORDER_STORAGE_KEY = 'timeless_last_order';
+import { ORDER_STORAGE_KEY } from '../api/ordersApi';
 
 function readStoredOrder() {
     try {
         const raw = sessionStorage.getItem(ORDER_STORAGE_KEY);
-        return raw ? JSON.parse(raw) : null;
+        const parsed = raw ? JSON.parse(raw) : null;
+        // Older entries were saved in a different shape before orders came back from the API.
+        return parsed?.order_number ? parsed : null;
     } catch {
         return null;
     }
+}
+
+function money(value) {
+    return `$${Number(value || 0).toFixed(2)}`;
+}
+
+function DetailBlock({ title, children }) {
+    return (
+        <div>
+            <h2 className="mb-2 text-[0.8rem] font-medium uppercase tracking-wider text-zinc-500">{title}</h2>
+            {children}
+        </div>
+    );
 }
 
 export default function OrderConfirmationPage() {
@@ -21,10 +34,10 @@ export default function OrderConfirmationPage() {
     const [order] = useState(() => location.state?.order || readStoredOrder());
 
     const formattedDate = useMemo(() => {
-        if (!order?.createdAt) return '-';
+        if (!order?.created_at) return '-';
 
         try {
-            return new Date(order.createdAt).toLocaleString();
+            return new Date(order.created_at).toLocaleString();
         } catch {
             return '-';
         }
@@ -44,47 +57,53 @@ export default function OrderConfirmationPage() {
         );
     }
 
-    const { billing = {} } = order;
-
     return (
         <section className={`${featuresFontClass} bg-white px-5 py-10 sm:px-8 lg:px-12`}>
             <div className="mx-auto w-full max-w-[900px]">
                 <div className="flex flex-col items-center gap-3 border-b border-zinc-200 pb-8 text-center">
                     <CheckCircle2 className="size-12 text-emerald-600" />
                     <h1 className="text-[2rem] font-normal uppercase tracking-wide text-zinc-900">Order Confirmed</h1>
-                    <p className="text-zinc-600">Thank you, {billing.firstName}! Your order has been placed successfully.</p>
+                    <p className="text-zinc-600">
+                        Thank you, {order.first_name}! Your order has been placed successfully.
+                        {order.email ? <> We'll send updates to <span className="font-medium text-zinc-900">{order.email}</span>.</> : null}
+                    </p>
                 </div>
 
                 <div className="mt-8 grid gap-8 sm:grid-cols-2">
-                    <div>
-                        <h2 className="text-[0.8rem] font-medium uppercase tracking-wider text-zinc-500 mb-2">Order Number</h2>
-                        <p className="text-sm font-semibold text-zinc-900">{order.orderNumber}</p>
-                    </div>
-                    <div>
-                        <h2 className="text-[0.8rem] font-medium uppercase tracking-wider text-zinc-500 mb-2">Date Placed</h2>
+                    <DetailBlock title="Order Number">
+                        <p className="text-sm font-semibold text-zinc-900">{order.order_number}</p>
+                    </DetailBlock>
+                    <DetailBlock title="Date Placed">
                         <p className="text-sm font-semibold text-zinc-900">{formattedDate}</p>
-                    </div>
-                    <div>
-                        <h2 className="text-[0.8rem] font-medium uppercase tracking-wider text-zinc-500 mb-2">Shipping Address</h2>
+                    </DetailBlock>
+                    <DetailBlock title="Shipping Address">
                         <p className="text-sm text-zinc-700">
-                            {billing.firstName} {billing.lastName}
+                            {order.first_name} {order.last_name}
+                            {order.company_name ? <><br />{order.company_name}</> : null}
                             <br />
-                            {billing.streetAddress}
-                            {billing.apartment ? `, ${billing.apartment}` : ''}
+                            {order.street_address}
+                            {order.apartment ? `, ${order.apartment}` : ''}
                             <br />
-                            {billing.city}, {billing.state} {billing.zip}
+                            {order.city}, {order.state} {order.zip}
                             <br />
-                            {billing.country}
+                            {order.country}
                         </p>
-                    </div>
-                    <div>
-                        <h2 className="text-[0.8rem] font-medium uppercase tracking-wider text-zinc-500 mb-2">Contact</h2>
-                        <p className="text-sm text-zinc-700">{billing.phone}</p>
-                    </div>
+                    </DetailBlock>
+                    <DetailBlock title="Contact">
+                        <p className="text-sm text-zinc-700">
+                            {order.email ? <>{order.email}<br /></> : null}
+                            {order.phone}
+                        </p>
+                    </DetailBlock>
+                    {order.notes ? (
+                        <DetailBlock title="Order Notes">
+                            <p className="whitespace-pre-line text-sm text-zinc-700">{order.notes}</p>
+                        </DetailBlock>
+                    ) : null}
                 </div>
 
                 <div className="mt-10">
-                    <h2 className="text-[1.1rem] font-medium uppercase tracking-wide text-zinc-900 pb-4 border-b border-zinc-200">
+                    <h2 className="border-b border-zinc-200 pb-4 text-[1.1rem] font-medium uppercase tracking-wide text-zinc-900">
                         Order Summary
                     </h2>
                     <div className="divide-y divide-zinc-200">
@@ -97,14 +116,17 @@ export default function OrderConfirmationPage() {
                                         className="h-full w-full object-cover"
                                     />
                                 </div>
-                                <div className="flex flex-1 items-center justify-between">
-                                    <div>
+                                <div className="flex flex-1 items-center justify-between gap-3">
+                                    <div className="min-w-0">
                                         <p className="text-sm font-medium text-zinc-900">{item.name}</p>
-                                        <p className="text-xs text-zinc-500 mt-0.5">Qty: {item.quantity || 1}</p>
+                                        <p className="mt-0.5 text-xs text-zinc-500">
+                                            {[item.color, item.size, `Qty: ${item.quantity}`].filter(Boolean).join(' · ')}
+                                        </p>
+                                        {item.design ? (
+                                            <p className="mt-0.5 text-xs text-zinc-500">Design: {item.design.title || 'Custom design'}</p>
+                                        ) : null}
                                     </div>
-                                    <p className="text-sm font-medium text-zinc-900">
-                                        ${cartItemLineTotal(item).toFixed(2)}
-                                    </p>
+                                    <p className="text-sm font-medium tabular-nums text-zinc-900">{money(item.line_total)}</p>
                                 </div>
                             </div>
                         ))}
@@ -113,21 +135,21 @@ export default function OrderConfirmationPage() {
                     <div className="mt-4 space-y-3 border-t border-zinc-200 pt-4 text-sm text-zinc-600">
                         <div className="flex justify-between">
                             <span>Subtotal</span>
-                            <span className="font-medium text-zinc-900">${Number(order.subtotal || 0).toFixed(2)}</span>
+                            <span className="font-medium tabular-nums text-zinc-900">{money(order.subtotal)}</span>
                         </div>
                         <div className="flex justify-between">
                             <span>Shipping</span>
-                            <span className="font-medium text-zinc-900">${Number(order.shipping || 0).toFixed(2)}</span>
+                            <span className="font-medium tabular-nums text-zinc-900">{money(order.shipping)}</span>
                         </div>
                         <div className="flex justify-between">
                             <span>Tax</span>
-                            <span className="font-medium text-zinc-900">${Number(order.tax || 0).toFixed(2)}</span>
+                            <span className="font-medium tabular-nums text-zinc-900">{money(order.tax)}</span>
                         </div>
                     </div>
 
                     <div className="mt-4 flex items-center justify-between border-t border-zinc-200 pt-4">
                         <span className="text-base font-semibold text-zinc-900">Total</span>
-                        <span className="text-xl font-bold text-zinc-900">${Number(order.total || 0).toFixed(2)}</span>
+                        <span className="text-xl font-bold tabular-nums text-zinc-900">{money(order.total)}</span>
                     </div>
                 </div>
 

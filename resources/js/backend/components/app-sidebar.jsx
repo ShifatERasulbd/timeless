@@ -6,8 +6,9 @@ import {
     LayoutList,
     PanelsTopLeft,
     Package,
+    ShoppingCart,
     LogOut
-  
+
 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -50,6 +51,7 @@ const inventoryItems = [
 ];
 
 const orderManagementItems = [
+    { title: 'Orders', icon: ShoppingCart, path: '/admin/orders' },
     { title: 'Personalization Orders', icon: Palette, path: '/admin/personalization/orders' },
     { title: 'Personalizer Prices', icon: Sparkles, path: '/admin/personalizer-prices' },
 ]

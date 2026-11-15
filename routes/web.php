@@ -46,6 +46,10 @@ Route::get('/checkout', function () {
     return view('home');
 });
 
+Route::get('/order-confirmation', function () {
+    return view('home');
+});
+
 
 Route::get('/about', function () {
     return view('home');
@@ -104,7 +108,8 @@ Route::prefix('api')->group(function () {
         Route::delete('/personalizations/{personalization}', [PersonalizationController::class, 'destroy']);
         // Order controller
         Route::get('/orders', [OrderController::class, 'index']);
-        Route::get('/orders/{order}', [OrderController::class, 'show']);
+        Route::get('/orders/{order}', [OrderController::class, 'show'])->whereNumber('order');
+        Route::put('/orders/{order}', [OrderController::class, 'update'])->whereNumber('order');
         // Size Controller
         	Route::put('/sizes/reorder', [SizeController::class, 'reorder']);
 	    Route::apiResource('/sizes', SizeController::class)->whereNumber('size');

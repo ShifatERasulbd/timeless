@@ -157,7 +157,7 @@ export default function CartPage() {
     }
 
     return (
-        <section className="bg-[#f5f7fb] px-5 py-10 font-poppins sm:px-8 lg:px-12 lg:py-14">
+        <section className="bg-[#f9f9f8] px-5 py-10 font-poppins sm:px-8 lg:px-12 lg:py-14">
             <div className="mx-auto w-full max-w-[1280px]">
                 <h1 className="text-[2.1rem] font-bold tracking-tight text-[#0f1d40] sm:text-[2.4rem]">Your Cart</h1>
                 <p className="mt-1 text-[0.95rem] text-zinc-500">Manage your shopping cart items</p>

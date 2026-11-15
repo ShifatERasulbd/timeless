@@ -11,6 +11,9 @@ class OrderItem extends Model
         'order_id',
         'product_id',
         'name',
+        'color',
+        'size',
+        'design',
         'image',
         'price',
         'quantity',
@@ -19,6 +22,7 @@ class OrderItem extends Model
     protected $casts = [
         'price' => 'decimal:2',
         'quantity' => 'integer',
+        'design' => 'array',
     ];
 
     public function order(): BelongsTo

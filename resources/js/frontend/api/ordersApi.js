@@ -1,3 +1,6 @@
+/** sessionStorage key holding the last placed order (server response) for the confirmation page. */
+export const ORDER_STORAGE_KEY = 'timeless_last_order';
+
 async function ensureCsrfCookie() {
     await fetch('/sanctum/csrf-cookie', {
         credentials: 'include',
@@ -9,14 +12,15 @@ async function ensureCsrfCookie() {
 }
 
 async function requestJson(url, options = {}) {
+    // Spread options first so the merged headers below are not replaced by options.headers.
     const response = await fetch(url, {
         credentials: 'include',
+        ...options,
         headers: {
             Accept: 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
             ...(options.headers || {}),
         },
-        ...options,
     });
 
     const contentType = response.headers.get('content-type') || '';

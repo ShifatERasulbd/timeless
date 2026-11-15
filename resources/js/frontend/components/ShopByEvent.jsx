@@ -15,22 +15,46 @@ function IndustryCard({ title, image, category, ready, delayMs }) {
     return (
         <Link
             to={industryShopPath(category)}
-            className={`industry-card${ready ? ' industry-card--ready' : ''} group relative block aspect-[3/5] w-full overflow-hidden bg-zinc-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white`}
+            className={`industry-card${ready ? ' industry-card--ready' : ''} group relative block aspect-[3/5] w-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-white`}
             style={{ '--industry-card-delay': `${delayMs}ms` }}
         >
-            {image ? (
-                <img
-                    src={image}
-                    alt={title || 'Industry image'}
-                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-            ) : null}
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+            <div className="industry-card__inner">
+                {/* Front */}
+                <div className="industry-card__face bg-zinc-200">
+                    {image ? (
+                        <img
+                            src={image}
+                            alt={title || 'Industry image'}
+                            className="h-full w-full object-cover"
+                        />
+                    ) : null}
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
 
-            <div className="absolute inset-x-0 bottom-1/4 z-10 px-6 text-center">
-                <h3 className="text-[2rem] font-normal uppercase leading-snug tracking-[0.04em] text-white [text-shadow:0_2px_4px_rgba(0,0,0,0.5)] sm:text-[1.4rem]">
-                    {title || ''}
-                </h3>
+                    <div className="absolute inset-x-0 bottom-1/4 z-10 px-6 text-center">
+                        <h3 className="text-[2rem] font-normal uppercase leading-snug tracking-[0.04em] text-white [text-shadow:0_2px_4px_rgba(0,0,0,0.5)] sm:text-[1.4rem]">
+                            {title || ''}
+                        </h3>
+                    </div>
+                </div>
+
+                {/* Back */}
+                <div className="industry-card__face industry-card__face--back bg-zinc-900">
+                    {image ? (
+                        <img
+                            src={image}
+                            alt=""
+                            aria-hidden="true"
+                            className="h-full w-full object-cover"
+                        />
+                    ) : null}
+                    <div className="pointer-events-none absolute inset-0 bg-black/55" />
+
+                    <div className="industry-card__back-title absolute inset-x-0 z-10 px-6 text-center">
+                        <h3 className="text-[2.6rem] font-normal uppercase leading-tight tracking-[0.06em] text-white [text-shadow:0_2px_6px_rgba(0,0,0,0.5)] sm:text-[2rem]">
+                            {title || ''}
+                        </h3>
+                    </div>
+                </div>
             </div>
         </Link>
     );
@@ -128,10 +152,45 @@ export default function ShopByIndustry() {
                 .industry-card {
                     opacity: 0;
                     transform: translateY(24px);
+                    perspective: 1000px;
                 }
                 .industry-card.industry-card--ready {
                     animation: industryCardFadeIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
                     animation-delay: var(--industry-card-delay, 0ms);
+                }
+                .industry-card__inner {
+                    position: absolute;
+                    inset: 0;
+                    transform-style: preserve-3d;
+                    transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+                }
+                .industry-card:hover .industry-card__inner,
+                .industry-card:focus-visible .industry-card__inner {
+                    transform: rotateY(180deg);
+                }
+                .industry-card__face {
+                    position: absolute;
+                    inset: 0;
+                    overflow: hidden;
+                    backface-visibility: hidden;
+                    -webkit-backface-visibility: hidden;
+                }
+                .industry-card__face--back {
+                    transform: rotateY(180deg);
+                }
+
+                /* Back title: starts at the front title position, then moves to the center and zooms. */
+                .industry-card__back-title {
+                    top: 72%;
+                    transform: translateY(-50%) scale(1);
+                    transition:
+                        top 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.25s,
+                        transform 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.25s;
+                }
+                .industry-card:hover .industry-card__back-title,
+                .industry-card:focus-visible .industry-card__back-title {
+                    top: 50%;
+                    transform: translateY(-50%) scale(1.15);
                 }
             `}</style>
             <div className="w-full px-6 sm:px-8 lg:px-12 mb-10 sm:mb-12">
