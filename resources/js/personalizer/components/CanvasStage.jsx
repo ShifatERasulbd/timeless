@@ -156,11 +156,36 @@ export default function CanvasStage({
 
     return (
         <section className="overflow-hidden rounded-[32px] border border-zinc-200 bg-white shadow-sm">
-            <div className="flex flex-col">
-                <div className="flex-1 bg-[radial-gradient(circle_at_top,#ffffff,transparent_45%),linear-gradient(180deg,#f7f6f2_0%,#f2f0ea_100%)] p-4 sm:p-6">
+            <div className="bg-[radial-gradient(circle_at_top,#ffffff,transparent_45%),linear-gradient(180deg,#f7f6f2_0%,#f2f0ea_100%)] p-4 sm:p-6">
+                <div className="mx-auto flex max-w-[960px] flex-col gap-4 lg:flex-row lg:items-start">
+                    {/* VIEW SWITCHER: a column left of the canvas on desktop, a row under it on mobile. */}
+                    <div className="order-last flex shrink-0 flex-wrap gap-3 lg:order-first lg:flex-col lg:flex-nowrap">
+                        {productViews.map((view) => (
+                            <button
+                                key={view.id}
+                                type="button"
+                                onClick={() => onSwitchView(view)}
+                                aria-label={`Show ${view.label} view`}
+                                aria-pressed={activeView === view.id}
+                                className={cn(
+                                    'rounded-2xl border bg-white p-2 transition-colors',
+                                    activeView === view.id
+                                        ? 'border-zinc-950 shadow-sm'
+                                        : 'border-zinc-200 hover:border-zinc-400'
+                                )}
+                            >
+                                <img
+                                    src={view.url}
+                                    alt={view.label}
+                                    className="h-20 w-16 rounded-xl object-cover"
+                                />
+                            </button>
+                        ))}
+                    </div>
+
                     <div
                         className={cn(
-                            'mx-auto flex max-w-[860px] items-center justify-center rounded-[30px] border bg-white shadow-inner transition-colors',
+                            'flex min-w-0 max-w-[860px] flex-1 items-center justify-center rounded-[30px] border bg-white shadow-inner transition-colors',
                             isDragOver
                                 ? 'border-zinc-950/70 ring-2 ring-zinc-950/20'
                                 : 'border-zinc-200/60'
@@ -196,31 +221,6 @@ export default function CanvasStage({
                                 />
                             )}
                         </div>
-                    </div>
-                </div>
-
-                {/* VIEW SWITCHER */}
-                <div className="border-t border-zinc-200 bg-white px-4 py-4 sm:px-6">
-                    <div className="flex flex-wrap gap-3">
-                        {productViews.map((view) => (
-                            <button
-                                key={view.id}
-                                type="button"
-                                onClick={() => onSwitchView(view)}
-                                className={cn(
-                                    'rounded-2xl border p-2 transition-colors',
-                                    activeView === view.id
-                                        ? 'border-zinc-950 shadow-sm'
-                                        : 'border-zinc-200 hover:border-zinc-400'
-                                )}
-                            >
-                                <img
-                                    src={view.url}
-                                    alt={view.label}
-                                    className="h-20 w-16 rounded-xl object-cover"
-                                />
-                            </button>
-                        ))}
                     </div>
                 </div>
             </div>

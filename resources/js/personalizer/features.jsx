@@ -7,6 +7,10 @@ import CanvasStage from './components/CanvasStage';
 import CustomizePanel from './components/CustomizePanel';
 import LeftToolbar from './components/LeftToolbar';
 import PageHeader from './components/PageHeader';
+import { saveMockupLayers } from './mockupLayerStore';
+import { analyzeImage, printQuality, PRINT_DPI_GOOD } from './printQuality';
+import PrintQualityDialog from './components/PrintQualityDialog';
+import { addCartItem } from '../utils/cart';
 import {
     CANVAS_HEIGHT,
     CANVAS_WIDTH,
@@ -280,8 +284,13 @@ function persistPendingOrder(orderDetails) {
 }
 const PIXELS_PER_INCH = 96;
 // Real-world size of the printable area on the garment, used to calibrate on-canvas measurements.
-const PRINT_AREA_WIDTH_IN = 14;
-const PRINT_AREA_HEIGHT_IN = 8;
+// Real size of the print area (the dashed box on the garment). The box is portrait, 8:14, so it's
+// 8 in wide by 14 in tall; with the two the other way round, widths read 1.75x too large and
+// heights 1.75x too small (areas, and so prices, were unaffected).
+const PRINT_AREA_WIDTH_IN = 8;
+const PRINT_AREA_HEIGHT_IN = 14;
+// Uploads are placed no larger than they print sharp at, unless that would be smaller than this.
+const MIN_SHARP_PLACEMENT_WIDTH_IN = 2.5;
 const MAX_ELEMENT_AREA_SQIN = 14;
 
 function isBlobObjectUrl(url) {
@@ -412,12 +421,16 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
     const sizeLabelRef = useRef(null);
     const hasInitializedRef = useRef(false);
     const personalizerPriceTiersRef = useRef([]);
+    // Print-quality analysis per uploaded image (keyed by design id or image source); the
+    // measurement is size-independent, so it's done once and re-graded as the image is resized.
+    const printAnalysisRef = useRef(new Map());
 
     const [isReady, setIsReady] = useState(false);
     const [activeTool, setActiveTool] = useState('upload');
     const [activeView, setActiveView] = useState('front');
     const [productColor, setProductColor] = useState('black');
     const [productInfo, setProductInfo] = useState(null);
+    const [selectedSize, setSelectedSize] = useState('');
     const [isProductLoading, setIsProductLoading] = useState(Boolean(productSlug));
     const [draftText, setDraftText] = useState('THE UNKNOWN');
     const [draftFontFamily, setDraftFontFamily] = useState('Montserrat');
@@ -431,6 +444,8 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
     const [selectedObjectId, setSelectedObjectId] = useState(null);
     const [isSaving, setIsSaving] = useState(false);
     const [savedUrl, setSavedUrl] = useState('');
+    // Image the customer is being asked to replace (too low quality to print), or null.
+    const [qualityReview, setQualityReview] = useState(null);
     const [orderQuantity, setOrderQuantity] = useState(1);
     const [canUndo, setCanUndo] = useState(false);
     const [canRedo, setCanRedo] = useState(false);
@@ -492,7 +507,13 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
             .then((payload) => {
                 const views = buildProductViewsFromPayload(payload);
                 const colors = Array.isArray(payload.colors) ? payload.colors : [];
+                const sizes = (Array.isArray(payload.size_options) ? payload.size_options : [])
+                    .slice()
+                    .sort((a, b) => (Number(a.position) || 0) - (Number(b.position) || 0))
+                    .map((option) => String(option.label || option.token || '').trim())
+                    .filter(Boolean);
                 setProductInfo({
+                    id: Number(payload.id || payload.product_id) || 0,
                     name: payload.name || '',
                     price: payload.price ? `$${Number(payload.price).toFixed(2)}` : '',
                     basePrice: Number(payload.price || 0),
@@ -500,8 +521,10 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
                     views,
                     colors,
                     colorViews: buildColorViewsMap(payload),
+                    sizes,
                 });
                 if (colors.length) setProductColor(colors[0].id);
+                setSelectedSize(sizes[0] || '');
             })
             .catch((error) => {
                 if (error.name !== 'AbortError') setProductInfo(null);
@@ -527,6 +550,18 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
         () => layers.filter((layer) => layer.type === 'shape'),
         [layers]
     );
+
+    // Print quality per uploaded design on this side (the worst of its placements), for the
+    // uploads list.
+    const uploadPrintQuality = useMemo(() => {
+        const byDesign = {};
+        activeImageLayers.forEach((layer) => {
+            if (!layer.designId || !layer.printQuality) return;
+            const current = byDesign[layer.designId];
+            if (!current || layer.printQuality.dpi < current.dpi) byDesign[layer.designId] = layer.printQuality;
+        });
+        return byDesign;
+    }, [activeImageLayers]);
 
     const selectedTextLayer = useMemo(
         () => activeTextLayers.find((layer) => layer.id === selectedObjectId) || null,
@@ -702,6 +737,88 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
         };
     };
 
+    /** Measured detail of a picture (cached per design / source), or null if it can't be read. */
+    const getCachedAnalysis = (key, element) => {
+        if (!key || !element) return null;
+
+        if (!printAnalysisRef.current.has(key)) {
+            let analysis = null;
+            try {
+                analysis = analyzeImage(element);
+            } catch {
+                // Unreadable (e.g. cross-origin without CORS): no grade rather than a wrong one.
+            }
+            printAnalysisRef.current.set(key, analysis);
+        }
+
+        return printAnalysisRef.current.get(key);
+    };
+
+    const getImageAnalysis = (object) => {
+        if (!object || object.get?.('layerType') !== 'image') return null;
+        return getCachedAnalysis(object.get?.('designId') || object.get?.('imageSource'), object.getElement?.());
+    };
+
+    /** Print quality of an image layer at its current size on the garment, or null. */
+    const getImagePrintQuality = (object) => {
+        const analysis = getImageAnalysis(object);
+        if (!analysis) return null;
+
+        const { pxPerInchX, pxPerInchY } = getPxPerInch(object.get?.('viewId') || activeViewRef.current);
+        return printQuality(
+            analysis,
+            (object.getScaledWidth?.() || 0) / pxPerInchX,
+            (object.getScaledHeight?.() || 0) / pxPerInchY,
+        );
+    };
+
+    /**
+     * Opens the "too low quality" prompt for an image layer when it would print blurry (and warns
+     * when it may print a little soft, unless `quiet`).
+     */
+    const reviewPrintQuality = (object, { beforeOrder = false, quiet = false } = {}) => {
+        const quality = getImagePrintQuality(object);
+        if (!quality) return quality;
+
+        if (quality.level === 'poor') {
+            const { pxPerInchX, pxPerInchY } = getPxPerInch(object.get?.('viewId') || activeViewRef.current);
+            setQualityReview({
+                objectId: object.get?.('objectId'),
+                designId: object.get?.('designId') || null,
+                name: object.get?.('sourceName') || 'Uploaded image',
+                url: object.get?.('imageSource') || '',
+                view: object.get?.('viewId') || activeViewRef.current,
+                analysis: getImageAnalysis(object),
+                quality,
+                widthIn: (object.getScaledWidth?.() || 0) / pxPerInchX,
+                heightIn: (object.getScaledHeight?.() || 0) / pxPerInchY,
+                beforeOrder,
+            });
+        } else if (quality.level === 'fair' && !beforeOrder && !quiet) {
+            toast.warning(`This image may print slightly soft at this size (${quality.dpi} DPI). A larger, sharper image will look better.`);
+        }
+
+        return quality;
+    };
+
+    /**
+     * Images that would print blurry at their current size (only ones that will actually be
+     * printed: visible and inside the print area). Ordering is blocked until they're fixed.
+     */
+    const findUnprintableImages = () => productViews.flatMap((view) => getViewObjects(view.id)
+        .filter((object) => object.get?.('layerType') === 'image'
+            && object.get?.('hiddenByUser') !== true
+            && object.get?.('outOfBounds') !== true)
+        .filter((object) => getImagePrintQuality(object)?.level === 'poor'));
+
+    /** True when every printed image is sharp enough; otherwise prompts about the first that isn't. */
+    const ensurePrintableImages = () => {
+        const [first] = findUnprintableImages();
+        if (!first) return true;
+        reviewPrintQuality(first, { beforeOrder: true });
+        return false;
+    };
+
     // Prices each design element (across both views) by its own area in square inches (same
     // metric as the MAX_ELEMENT_AREA_SQIN cap), looked up against the admin-configured
     // personalizer price tiers, then sums them for the design total. Also groups same-size
@@ -782,7 +899,11 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
         const areaSqIn = widthIn * heightIn;
 
         const bounds = object.getBoundingRect();
-        const text = `${widthIn.toFixed(2)} × ${heightIn.toFixed(2)} in  •  ${areaSqIn.toFixed(2)} in²`;
+        // Images also show their print resolution at this size, coloured by quality.
+        const quality = getImagePrintQuality(object);
+        const text = `${widthIn.toFixed(2)} × ${heightIn.toFixed(2)} in  •  ${areaSqIn.toFixed(2)} in²`
+            + (quality ? `  •  ${quality.dpi} DPI${quality.level === 'poor' ? ' (too low)' : ''}` : '');
+        const labelColor = quality?.level === 'poor' ? '#b91c1c' : quality?.level === 'fair' ? '#b45309' : '#18181b';
 
         let label = sizeLabelRef.current;
         if (!label) {
@@ -806,6 +927,7 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
 
         label.set({
             text,
+            backgroundColor: labelColor,
             left: bounds.left + bounds.width / 2,
             top: bounds.top + bounds.height + 8,
         });
@@ -1039,6 +1161,8 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
 
                 return {
                     id: object.get?.('objectId'),
+                    designId: object.get?.('designId') || null,
+                    printQuality: getImagePrintQuality(object),
                     type: getLayerType(object),
                     label: getLayerLabel(object),
                     visible: object.visible !== false,
@@ -1503,10 +1627,28 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
      * No overflow.
      * No cropping.
      */
-    const scale = Math.min(
+    let scale = Math.min(
         maxWidth / imageWidth,
         maxHeight / imageHeight
     );
+
+    /**
+     * PRINT QUALITY
+     *
+     * Don't blow a picture up past the size it prints sharp at (when that's still a useful size);
+     * the customer can enlarge it, with the live DPI readout showing when quality drops.
+     */
+    let placedForSharpness = false;
+    const analysis = getCachedAnalysis(designId || imageUrl, image.getElement());
+    if (analysis) {
+        const { pxPerInchX } = getPxPerInch(placement?.viewId || activeViewRef.current);
+        const sharpWidthIn = analysis.effectiveWidth / PRINT_DPI_GOOD;
+        const sharpScale = (sharpWidthIn * pxPerInchX) / imageWidth;
+        if (sharpScale < scale && sharpWidthIn >= MIN_SHARP_PLACEMENT_WIDTH_IN) {
+            scale = sharpScale;
+            placedForSharpness = true;
+        }
+    }
 
     /**
      * FINAL RENDER SIZE
@@ -1600,6 +1742,14 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
     refreshLayers();
 
     recordHistory();
+
+    // Check the picture is sharp enough to print at the size it was placed.
+    const quality = reviewPrintQuality(image, { quiet: placedForSharpness });
+    if (placedForSharpness && quality?.level === 'good') {
+        toast.info(`Sized to print sharp. It can go up to ${quality.maxGoodWidthIn.toFixed(1)} in wide before the print quality drops.`);
+    }
+
+    return image;
 };
 
     const handleCanvasDropDesign = async (designPayload, dropPoint) => {
@@ -2038,39 +2188,45 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
         recordHistory();
     };
 
-    const renderViewDataUrl = async (view) => {
+    // layer: 'all' = garment photo + design (the saved order image), 'base' = garment photo only,
+    // 'design' = design only on a transparent background. The last two feed the mockup preview,
+    // which blends the design into the fabric.
+    const renderViewDataUrl = async (view, layer = 'all') => {
         const sourceCanvas = getCanvas();
-        if (!sourceCanvas) return null;
+        // `view` is missing for the back of a colour that only has a front photo.
+        if (!sourceCanvas || !view) return null;
 
         const tempCanvasElement = document.createElement('canvas');
         const tempCanvas = new Canvas(tempCanvasElement, {
             width: CANVAS_WIDTH,
             height: CANVAS_HEIGHT,
-            backgroundColor: '#f6f3ee',
+            backgroundColor: layer === 'design' ? '' : '#f6f3ee',
             selection: false,
             preserveObjectStacking: true,
         });
 
-        const baseImage = await FabricImage.fromURL(view.url);
-        const scale = Math.min(CANVAS_WIDTH / baseImage.width, CANVAS_HEIGHT / baseImage.height);
-        const scaledWidth = baseImage.width * scale;
-        const scaledHeight = baseImage.height * scale;
+        if (layer !== 'design') {
+            const baseImage = await FabricImage.fromURL(view.url);
+            const scale = Math.min(CANVAS_WIDTH / baseImage.width, CANVAS_HEIGHT / baseImage.height);
+            const scaledWidth = baseImage.width * scale;
+            const scaledHeight = baseImage.height * scale;
 
-        baseImage.set({
-            left: (CANVAS_WIDTH - scaledWidth) / 2,
-            top: (CANVAS_HEIGHT - scaledHeight) / 2,
-            scaleX: scale,
-            scaleY: scale,
-            selectable: false,
-            evented: false,
-            originX: 'left',
-            originY: 'top',
-        });
+            baseImage.set({
+                left: (CANVAS_WIDTH - scaledWidth) / 2,
+                top: (CANVAS_HEIGHT - scaledHeight) / 2,
+                scaleX: scale,
+                scaleY: scale,
+                selectable: false,
+                evented: false,
+                originX: 'left',
+                originY: 'top',
+            });
 
-        tempCanvas.add(baseImage);
-        tempCanvas.sendObjectToBack(baseImage);
+            tempCanvas.add(baseImage);
+            tempCanvas.sendObjectToBack(baseImage);
+        }
 
-        const overlays = sourceCanvas
+        const overlays = layer === 'base' ? [] : sourceCanvas
             .getObjects()
             .filter((object) => !object.get?.('isBaseImage')
                 && !object.get?.('isSizeLabel')
@@ -2110,13 +2266,50 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
         }
     };
 
-    const handleSaveOrderDesign = async () => {
+    // Stores each view's garment photo and design as separate layers, so the mockup preview can
+    // blend the design into the fabric instead of showing it pasted on top.
+    const saveMockupViewLayers = async (key) => {
+        const views = {};
+
+        for (const view of productViews.slice(0, 2)) {
+            if (!view) continue;
+
+            const [base, design] = await Promise.all([
+                renderViewDataUrl(view, 'base'),
+                renderViewDataUrl(view, 'design'),
+            ]);
+            if (!base || !design) continue;
+
+            const [baseBlob, designBlob] = await Promise.all([
+                fetch(base).then((response) => response.blob()),
+                fetch(design).then((response) => response.blob()),
+            ]);
+            views[view.id] = { base: baseBlob, design: designBlob };
+        }
+
+        if (!Object.keys(views).length) return false;
+
+        await saveMockupLayers(key, views);
+        return true;
+    };
+
+    // `silent` skips the "saved" toast when the caller shows its own message (also safe when
+    // used directly as a click handler: the event has no `silent` property).
+    const handleSaveOrderDesign = async ({ silent = false } = {}) => {
         const canvas = getCanvas();
         if (!canvas) return null;
 
         setIsSaving(true);
         try {
             await ensureCsrfCookie();
+
+            // Runs alongside the save; it never blocks or fails it (the preview falls back to the
+            // flat images when layers are missing).
+            const mockupLayersKey = `layers-${Date.now()}`;
+            const mockupLayersSaved = saveMockupViewLayers(mockupLayersKey).catch((error) => {
+                console.warn('Unable to store mockup layers:', error);
+                return false;
+            });
 
             const [frontImageData, backImageData] = await Promise.all([
                 renderViewDataUrl(productViews[0]),
@@ -2206,6 +2399,7 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
                 orderStatus: data?.data?.order_status || 'pending',
                 productColor,
                 view: activeViewRef.current,
+                mockupLayersKey: (await mockupLayersSaved) ? mockupLayersKey : '',
                 createdAt: new Date().toISOString(),
                 // Where "Edit design" returns to: the product page when embedded, else this editor.
                 editUrl: embedded
@@ -2214,7 +2408,7 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
             };
 
             persistPendingOrder(orderDetails);
-            toast.success('Design saved successfully.');
+            if (!silent) toast.success('Design saved successfully.');
             return orderDetails;
         } catch (error) {
             toast.error(error.message || 'Unable to save design.');
@@ -2236,6 +2430,8 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
     };
 
     const handleOrderNow = async () => {
+        if (!ensurePrintableImages()) return;
+
         const orderDetails = await handleSaveOrderDesign();
         if (!orderDetails) return;
 
@@ -2247,6 +2443,110 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
         if (!orderDetails) return;
 
         goToPersonalizerPage('/personalizer/mockup-preview', orderDetails);
+    };
+
+    // "Too low quality" prompt actions.
+    const handleReplaceLowQualityImage = () => {
+        const review = qualityReview;
+        setQualityReview(null);
+        if (!review) return;
+
+        // Remove the blurry picture (and its upload, if nothing else uses it), then pick a new one.
+        if (review.designId) {
+            handleRemoveUploadedDesign(review.designId);
+        } else {
+            const object = getObjectById(review.objectId);
+            if (object) {
+                getCanvas()?.remove(object);
+                getCanvas()?.renderAll();
+                refreshLayers();
+                recordHistory();
+            }
+        }
+        fileInputRef.current?.click();
+    };
+
+    const handleShrinkLowQualityImage = () => {
+        const review = qualityReview;
+        setQualityReview(null);
+        const object = review && getObjectById(review.objectId);
+        if (!object) return;
+
+        // DPI scales inversely with size: shrink just enough to reach a sharp print.
+        const factor = Math.min(1, (review.quality.dpi / PRINT_DPI_GOOD) * 0.98);
+        object.set({ scaleX: (object.scaleX || 1) * factor, scaleY: (object.scaleY || 1) * factor });
+        object.setCoords();
+        clampObjectToArea(object);
+        getCanvas()?.renderAll();
+        refreshLayers();
+        recordHistory();
+
+        const quality = getImagePrintQuality(object);
+        toast.success(`Resized so it prints sharp${quality ? ` (${quality.dpi} DPI)` : ''}.`);
+    };
+
+    // Saves the design, then adds the personalised product to the storefront cart as its own line
+    // (product price with its quantity tiers + the design's per-unit price).
+    const handleAddToCart = async () => {
+        const productSizes = productInfo?.sizes || [];
+        if (productSizes.length && !selectedSize) {
+            toast.error('Choose a size first.');
+            return;
+        }
+
+        const designPricing = computeDesignPrice();
+        if (designPricing.components.length === 0) {
+            toast.error('Add a design (image, text or shape) before adding it to the cart.');
+            return;
+        }
+        if (!ensurePrintableImages()) return;
+
+        const orderDetails = await handleSaveOrderDesign({ silent: true });
+        if (!orderDetails) return;
+
+        // The cart lives in localStorage, so only store hosted image URLs, never multi-MB data URLs.
+        const hosted = (url) => (url && !url.startsWith('data:') ? url : '');
+        const designImage = hosted(orderDetails.frontImageUrl) || hosted(orderDetails.imageUrl);
+        const color = productColors.find((option) => option.id === productColor);
+        const basePrice = productInfo?.basePrice ?? (Number(String(productPrice).replace(/[^0-9.]/g, '')) || 0);
+        const unitPrice = resolveUnitPrice(productInfo?.stagePrices, orderQuantity, basePrice);
+
+        try {
+            addCartItem({
+                // One line per saved design, so different designs never merge.
+                id: `personalized-${orderDetails.id || Date.now()}`,
+                productId: productInfo?.id || 0,
+                name: productName || 'Personalized product',
+                price: `$${unitPrice.toFixed(2)}`,
+                basePrice,
+                stagePrices: productInfo?.stagePrices ?? [],
+                color: color?.label || '',
+                colorValue: color?.value || '',
+                size: selectedSize,
+                quantity: orderQuantity,
+                image: designImage || productViews[0]?.url || '',
+                design: {
+                    title: 'Custom design',
+                    image: designImage,
+                    backImage: hosted(orderDetails.backImageUrl),
+                    unitPrice: designPricing.total,
+                    personalizationId: orderDetails.id || null,
+                    editUrl: orderDetails.editUrl,
+                },
+            });
+        } catch {
+            toast.error('Unable to add to cart right now. Please try again.');
+            return;
+        }
+
+        toast.success(`${productName || 'Personalized product'} added to cart.`, {
+            action: {
+                label: 'View cart',
+                // The cart is a storefront page: client-side navigation when embedded there,
+                // a full page load from the standalone personalizer.
+                onClick: () => (embedded ? navigate('/cart') : window.location.assign('/cart')),
+            },
+        });
     };
 
     const handleShare = async () => {
@@ -2308,6 +2608,13 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
                 onChange={handleDesignUpload}
             />
 
+            <PrintQualityDialog
+                review={qualityReview}
+                onReplace={handleReplaceLowQualityImage}
+                onShrink={handleShrinkLowQualityImage}
+                onDismiss={() => setQualityReview(null)}
+            />
+
             <div className={`mx-auto flex max-w-[1600px] flex-col px-4 py-4 lg:px-6 xl:px-8 ${embedded ? '' : 'min-h-screen'}`}>
                 <PageHeader
                     showBackLink={!embedded}
@@ -2326,6 +2633,7 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
                             canRedo={canRedo}
                             onSelectTool={handleToolbarSelect}
                             uploadedDesigns={uploadedDesigns}
+                            uploadPrintQuality={uploadPrintQuality}
                             onUseUploadedDesign={handleUseUploadedDesign}
                             onRemoveUploadedDesign={handleRemoveUploadedDesign}
                             onOpenUpload={() => fileInputRef.current?.click()}
@@ -2415,6 +2723,10 @@ export default function Features({ productSlug: productSlugProp, embedded = fals
                             onDownload={handleDownloadBoth}
                             onPreviewMockups={handlePreviewMockups}
                             onOrderNow={handleOrderNow}
+                            onAddToCart={handleAddToCart}
+                            productSizes={productInfo?.sizes || []}
+                            selectedSize={selectedSize}
+                            onSelectSize={setSelectedSize}
                             isSaving={isSaving}
                             savedUrl={savedUrl}
                         />

@@ -21,6 +21,17 @@ class AuthController extends Controller
             ], 422);
         }
 
+        // Customers share the same users table; only staff (accounts with a role) may enter the admin panel.
+        if (! $request->user()->isAdmin()) {
+            Auth::guard('web')->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return response()->json([
+                'message' => 'This account does not have admin access.',
+            ], 403);
+        }
+
         $request->session()->regenerate();
 
         return response()->json([

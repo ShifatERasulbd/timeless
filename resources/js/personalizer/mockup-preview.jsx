@@ -4,7 +4,7 @@ import { ArrowLeft, Images } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 
-import MockupPreviewGrid from './components/MockupPreviewGrid';
+import Mockup360Viewer from './components/Mockup360Viewer';
 
 export default function MockupPreviewPage() {
     const navigate = useNavigate();
@@ -38,8 +38,10 @@ export default function MockupPreviewPage() {
         );
     }
 
-    const frontImageUrl = orderDetails?.frontImageUrl || orderDetails?.imageUrl || '';
-    const backImageUrl = orderDetails?.backImageUrl || frontImageUrl;
+    // Prefer the in-browser (data URL) snapshots: their pixels can always be read for background removal.
+    const frontImageUrl = orderDetails?.cachedFrontImageUrl || orderDetails?.frontImageUrl
+        || orderDetails?.cachedImageUrl || orderDetails?.imageUrl || '';
+    const backImageUrl = orderDetails?.cachedBackImageUrl || orderDetails?.backImageUrl || '';
 
     return (
         <main className="min-h-screen bg-[#f7f5ef] p-4 sm:p-6">
@@ -55,10 +57,14 @@ export default function MockupPreviewPage() {
 
                 <div className="mb-6">
                     <h1 className="text-2xl font-semibold">Mockup previews</h1>
-                    <p className="mt-1 text-sm text-zinc-500">Different presentation versions generated from your current design.</p>
+                    <p className="mt-1 text-sm text-zinc-500">Spin your design all the way around to see the front and back.</p>
                 </div>
 
-                <MockupPreviewGrid frontImageUrl={frontImageUrl} backImageUrl={backImageUrl} />
+                <Mockup360Viewer
+                    frontImageUrl={frontImageUrl}
+                    backImageUrl={backImageUrl}
+                    layersKey={orderDetails?.mockupLayersKey}
+                />
             </div>
         </main>
     );

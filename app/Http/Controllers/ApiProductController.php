@@ -8,6 +8,7 @@ use App\Models\Size;
 use App\Models\Stage;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -34,6 +35,45 @@ class ApiProductController extends Controller
             ->map(fn (Product $product): array => $this->formatProduct($product));
 
         return response()->json($products);
+    }
+
+    /**
+     * Storefront search by product name or style number (SKU). Returns a slim payload for the
+     * header search modal: exact style-number matches first, then names starting with the term.
+     */
+    public function search(Request $request): JsonResponse
+    {
+        $term = trim((string) $request->query('q', ''));
+
+        if (mb_strlen($term) < 2) {
+            return response()->json([]);
+        }
+
+        $term = mb_substr($term, 0, 100);
+        $like = '%' . addcslashes($term, '%_\\') . '%';
+        $prefix = addcslashes($term, '%_\\') . '%';
+
+        $products = Product::query()
+            ->with('category:id,name')
+            ->where(fn ($query) => $query->where('name', 'like', $like)->orWhere('sku', 'like', $like))
+            ->orderByRaw(
+                'CASE WHEN sku = ? THEN 0 WHEN sku LIKE ? THEN 1 WHEN name LIKE ? THEN 2 ELSE 3 END',
+                [$term, $prefix, $prefix],
+            )
+            ->orderBy('name')
+            ->limit(20)
+            ->get(['id', 'name', 'slug', 'sku', 'price', 'cover_image', 'image_gallery', 'category_id']);
+
+        return response()->json($products->map(fn (Product $product): array => [
+            'id' => $product->id,
+            'name' => $product->name,
+            'slug' => $product->slug,
+            'sku' => $product->sku,
+            'price' => $product->price,
+            'cover_image' => $product->cover_image,
+            'image_gallery' => $product->image_gallery ?? [],
+            'category' => $product->category?->name,
+        ]));
     }
 
     public function show(Product $product): JsonResponse

@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronRight, House, ShoppingCart, SlidersHorizontal } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import useCategories from '../hooks/useCategories';
 import {
@@ -285,12 +285,13 @@ export default function ShopCatalogSection() {
     const openQuickAdd = useCallback((product, colorIndex) => setQuickAdd({ product, colorIndex }), []);
     const closeQuickAdd = useCallback(() => setQuickAdd(null), []);
 
-    // Set by the header category menu, the Product Type filter and the home page cards,
-    // e.g. /shop?category=mens-ware, ...&subcategory=tops, or ...&subcategory=tops&grandchild=t-shirts.
-    const [searchParams, setSearchParams] = useSearchParams();
-    const categorySlug = searchParams.get('category') || '';
-    const subCategorySlug = searchParams.get('subcategory') || '';
-    const grandChildSlug = searchParams.get('grandchild') || '';
+    // Category hierarchy is encoded in the path; query parameters remain supported for old links.
+    const { categorySlug: pathCategorySlug, subCategorySlug: pathSubCategorySlug, grandChildSlug: pathGrandChildSlug } = useParams();
+    const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const categorySlug = pathCategorySlug || searchParams.get('category') || '';
+    const subCategorySlug = pathSubCategorySlug || searchParams.get('subcategory') || '';
+    const grandChildSlug = pathGrandChildSlug || searchParams.get('grandchild') || '';
 
     // A new category has its own colours/sizes, so start its filters fresh.
     useEffect(() => {
@@ -378,7 +379,8 @@ export default function ShopCatalogSection() {
         setPage(1);
         const next = new URLSearchParams(searchParams);
         ['category', 'subcategory', 'grandchild'].forEach((key) => next.delete(key));
-        setSearchParams(next);
+        const query = next.toString();
+        navigate({ pathname: '/shop', search: query ? `?${query}` : '' });
     }
 
     return (

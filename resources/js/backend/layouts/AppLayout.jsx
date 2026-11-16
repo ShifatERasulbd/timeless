@@ -27,9 +27,17 @@ export default function AppLayout() {
                 }
 
                 const payload = await response.json();
-                if (!ignore) {
-                    setUser(payload);
+                if (ignore) {
+                    return;
                 }
+
+                // Storefront customers share the session guard but can't use the admin API.
+                if (payload?.is_admin === false) {
+                    window.location.replace('/account');
+                    return;
+                }
+
+                setUser(payload);
             } catch {
                 // Keep layout resilient even if user fetch fails.
             }

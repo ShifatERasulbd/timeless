@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { featuresFontClass } from '../../utils/typography';
@@ -10,9 +10,36 @@ import {
     readCart,
     writeCart,
 } from '../../utils/cart';
+import { accountApi } from '../api/accountApi';
 import { createOrder, ORDER_STORAGE_KEY } from '../api/ordersApi';
+import useAuth from '../hooks/useAuth';
 
 const CHECKOUT_NOW_KEY = 'timeless_checkout_now';
+
+const ADDRESS_FIELDS = [
+    'first_name',
+    'last_name',
+    'company_name',
+    'phone',
+    'country',
+    'street_address',
+    'apartment',
+    'state',
+    'city',
+    'zip',
+];
+
+/** Billing fields to fill from the customer's account: profile details plus a saved address. */
+function accountPrefill(user, address) {
+    return {
+        email: user?.email || '',
+        first_name: address?.first_name || user?.first_name || '',
+        last_name: address?.last_name || user?.last_name || '',
+        company_name: address?.company_name || (user?.account_type === 'corporate' ? user.company_name : '') || '',
+        phone: address?.phone || user?.phone || '',
+        ...(address ? Object.fromEntries(ADDRESS_FIELDS.slice(4).map((key) => [key, address[key] || ''])) : {}),
+    };
+}
 
 const inputClass = 'w-full rounded-sm border bg-white px-3.5 py-2.5 text-sm text-zinc-900 focus:outline-none';
 
@@ -89,6 +116,58 @@ export default function CheckoutPage() {
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
     const [placeOrderError, setPlaceOrderError] = useState('');
     const [fieldErrors, setFieldErrors] = useState({});
+    const { user, isAuthenticated } = useAuth();
+    const [savedAddresses, setSavedAddresses] = useState([]);
+    const [selectedAddressId, setSelectedAddressId] = useState('');
+    const hasPrefilled = useRef(false);
+
+    // Signed-in customers: load their address book and fill in the form once (only fields still empty).
+    useEffect(() => {
+        if (!isAuthenticated || hasPrefilled.current) return undefined;
+
+        let ignore = false;
+        hasPrefilled.current = true;
+
+        accountApi
+            .addresses()
+            .catch(() => [])
+            .then((addresses) => {
+                if (ignore) return;
+                const list = Array.isArray(addresses) ? addresses : [];
+                const defaultAddress = list.find((address) => address.is_default) || list[0] || null;
+                setSavedAddresses(list);
+                setSelectedAddressId(defaultAddress ? String(defaultAddress.id) : '');
+                fillForm(accountPrefill(user, defaultAddress), { onlyEmpty: true });
+            });
+
+        return () => {
+            ignore = true;
+            hasPrefilled.current = false;
+        };
+        // Runs when the sign-in state changes; `user` is read once at that point on purpose.
+    }, [isAuthenticated]);
+
+    function fillForm(values, { onlyEmpty = false } = {}) {
+        const form = formRef.current;
+        if (!form) return;
+
+        Object.entries(values).forEach(([name, value]) => {
+            const element = form.elements.namedItem(name);
+            if (element && 'value' in element && (!onlyEmpty || !element.value)) {
+                element.value = value ?? '';
+            }
+        });
+    }
+
+    function handleSelectSavedAddress(event) {
+        const id = event.target.value;
+        setSelectedAddressId(id);
+        const address = savedAddresses.find((entry) => String(entry.id) === id);
+        if (address) {
+            fillForm(accountPrefill(user, address));
+            setFieldErrors({});
+        }
+    }
 
     // Same totals as the cart page: quantity price tiers plus any design charges.
     const { subtotal, shipping, tax, total } = useMemo(() => orderTotals(items), [items]);
@@ -148,6 +227,46 @@ export default function CheckoutPage() {
                         <div className="space-y-6">
                             <h2 className="text-[1.25rem] font-medium uppercase tracking-wide text-zinc-900">Billing Details</h2>
 
+                            {isAuthenticated ? (
+                                <p className="text-sm text-zinc-600">
+                                    Signed in as <span className="font-medium text-zinc-900">{user.email}</span>. This order will appear in{' '}
+                                    <Link to="/account/orders" className="font-medium text-zinc-900 underline underline-offset-2">your account</Link>.
+                                </p>
+                            ) : (
+                                <p className="border border-zinc-200 bg-[#FBFBFA] px-4 py-3 text-sm text-zinc-600">
+                                    Returning customer?{' '}
+                                    <Link to="/login?redirect=/checkout" className="font-medium text-zinc-900 underline underline-offset-2">
+                                        Log in
+                                    </Link>{' '}
+                                    to use your saved addresses and track this order from your account.
+                                </p>
+                            )}
+
+                            {savedAddresses.length ? (
+                                <div>
+                                    <label htmlFor="checkout-saved-address" className="mb-1.5 block text-[0.8rem] uppercase tracking-wider text-zinc-700">
+                                        Use a saved address
+                                    </label>
+                                    <select
+                                        id="checkout-saved-address"
+                                        value={selectedAddressId}
+                                        onChange={handleSelectSavedAddress}
+                                        className={`${inputClass} border-zinc-300 focus:border-zinc-900`}
+                                    >
+                                        {savedAddresses.map((address) => (
+                                            <option key={address.id} value={String(address.id)}>
+                                                {[
+                                                    address.label || `${address.first_name} ${address.last_name}`,
+                                                    address.street_address,
+                                                    address.city,
+                                                ].filter(Boolean).join(' — ')}
+                                                {address.is_default ? ' (default)' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            ) : null}
+
                             <form id="checkout-form" ref={formRef} onSubmit={handlePlaceOrder} className="space-y-5">
                                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                                     <Field label="First name" name="first_name" required autoComplete="given-name" error={fieldErrors.first_name} />
@@ -198,6 +317,21 @@ export default function CheckoutPage() {
                                         className={`${inputClass} border-zinc-300 focus:border-zinc-900`}
                                     />
                                 </Field>
+
+                                {isAuthenticated ? (
+                                    <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-zinc-700">
+                                        {/* value="1" so Laravel's boolean rule accepts it (a bare checkbox sends "on"). */}
+                                        <input
+                                            type="checkbox"
+                                            name="save_address"
+                                            value="1"
+                                            defaultChecked={!savedAddresses.length}
+                                            key={savedAddresses.length ? 'has-addresses' : 'no-addresses'}
+                                            className="size-4 accent-black"
+                                        />
+                                        Save this address to my account
+                                    </label>
+                                ) : null}
                             </form>
                         </div>
 

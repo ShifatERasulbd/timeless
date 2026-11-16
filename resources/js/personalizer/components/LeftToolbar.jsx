@@ -32,6 +32,25 @@ const TOOL_ITEMS = [
     { id: 'redo', label: 'Redo', icon: RotateCw, action: true },
 ];
 
+const QUALITY_STYLES = {
+    good: { dot: 'bg-emerald-500', text: 'text-emerald-700', label: 'Print ready' },
+    fair: { dot: 'bg-amber-500', text: 'text-amber-700', label: 'May print soft' },
+    poor: { dot: 'bg-red-500', text: 'text-red-700', label: 'Too low to print' },
+};
+
+/** "Print ready · 220 DPI" style badge for an uploaded image at its current size. */
+function PrintQualityBadge({ quality }) {
+    if (!quality) return null;
+    const style = QUALITY_STYLES[quality.level];
+
+    return (
+        <span className={cn('mt-0.5 flex items-center gap-1 text-[10px] font-medium', style.text)}>
+            <span className={cn('size-1.5 shrink-0 rounded-full', style.dot)} aria-hidden="true" />
+            {style.label} · {quality.dpi} DPI
+        </span>
+    );
+}
+
 function ToolbarButton({ active, icon: Icon, label, onClick, disabled = false, onMouseEnter, onMouseLeave, buttonRef }) {
     return (
         <button
@@ -89,6 +108,7 @@ export default function LeftToolbar({
     canRedo,
     onSelectTool,
     uploadedDesigns = [],
+    uploadPrintQuality = {},
     onUseUploadedDesign,
     onRemoveUploadedDesign,
     onOpenUpload,
@@ -196,7 +216,10 @@ export default function LeftToolbar({
                                         className="flex min-w-0 flex-1 items-center gap-3 text-left"
                                     >
                                         <img src={design.url} alt={design.name} className="size-10 rounded-lg object-cover" draggable={false} />
-                                        <span className="truncate text-xs font-medium text-zinc-700">{design.name}</span>
+                                        <span className="min-w-0">
+                                            <span className="block truncate text-xs font-medium text-zinc-700">{design.name}</span>
+                                            <PrintQualityBadge quality={uploadPrintQuality[design.id]} />
+                                        </span>
                                     </button>
                                     <button
                                         type="button"

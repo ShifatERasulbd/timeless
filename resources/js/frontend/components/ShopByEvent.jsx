@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { featuresFontClass } from '../../utils/typography';
+import { categoryShopPath } from '../../utils/shopPaths';
 
 // Stagger between each industry card starting its fade-in.
 const CARD_STAGGER_MS = 180;
 
 // Cards linked to a category open the shop filtered by it; unlinked cards open the full shop.
 function industryShopPath(category) {
-    return category?.slug ? `/shop?category=${encodeURIComponent(category.slug)}` : '/shop';
+    return category?.slug ? categoryShopPath(category) : '/shop';
 }
 
 function IndustryCard({ title, image, category, ready, delayMs }) {

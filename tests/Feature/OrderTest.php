@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -11,6 +12,16 @@ use Tests\TestCase;
 class OrderTest extends TestCase
 {
     use RefreshDatabase;
+
+    /** The order admin endpoints only admit staff, i.e. users holding a role. */
+    private function adminUser(): User
+    {
+        $user = User::factory()->create();
+        $role = Role::query()->firstOrCreate(['slug' => 'super-admin'], ['name' => 'Super Admin']);
+        $user->roles()->attach($role);
+
+        return $user;
+    }
 
     private function checkoutPayload(array $overrides = []): array
     {
@@ -100,7 +111,7 @@ class OrderTest extends TestCase
     public function test_admin_can_view_and_update_an_order(): void
     {
         $orderId = $this->postJson('/api/orders', $this->checkoutPayload())->json('data.id');
-        $this->actingAs(User::factory()->create(), 'sanctum');
+        $this->actingAs($this->adminUser(), 'sanctum');
 
         $this->getJson('/api/orders')->assertOk()->assertJsonPath('0.id', $orderId);
 
@@ -142,7 +153,7 @@ class OrderTest extends TestCase
     {
         $first = $this->postJson('/api/orders', $this->checkoutPayload())->json('data');
         $second = $this->postJson('/api/orders', $this->checkoutPayload())->json('data');
-        $this->actingAs(User::factory()->create(), 'sanctum');
+        $this->actingAs($this->adminUser(), 'sanctum');
 
         $this->putJson("/api/orders/{$first['id']}", ['status' => 'teleported'])
             ->assertUnprocessable()

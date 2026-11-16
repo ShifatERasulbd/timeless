@@ -4,6 +4,7 @@ import { CheckCircle2 } from 'lucide-react';
 
 import { featuresFontClass } from '../../utils/typography';
 import { ORDER_STORAGE_KEY } from '../api/ordersApi';
+import useAuth from '../hooks/useAuth';
 
 function readStoredOrder() {
     try {
@@ -32,6 +33,7 @@ function DetailBlock({ title, children }) {
 export default function OrderConfirmationPage() {
     const location = useLocation();
     const [order] = useState(() => location.state?.order || readStoredOrder());
+    const { isAuthenticated } = useAuth();
 
     const formattedDate = useMemo(() => {
         if (!order?.created_at) return '-';
@@ -153,10 +155,25 @@ export default function OrderConfirmationPage() {
                     </div>
                 </div>
 
-                <div className="mt-10 flex justify-center">
+                <div className="mt-10 flex flex-wrap justify-center gap-3">
                     <Link to="/shop" className="inline-flex bg-zinc-900 px-6 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white hover:bg-black">
                         Continue Shopping
                     </Link>
+                    {isAuthenticated ? (
+                        <Link
+                            to={`/account/orders/${encodeURIComponent(order.order_number)}`}
+                            className="inline-flex border border-zinc-400 px-6 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-900 hover:border-zinc-900"
+                        >
+                            Track this order
+                        </Link>
+                    ) : (
+                        <Link
+                            to="/register"
+                            className="inline-flex border border-zinc-400 px-6 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-zinc-900 hover:border-zinc-900"
+                        >
+                            Create an account
+                        </Link>
+                    )}
                 </div>
             </div>
         </section>

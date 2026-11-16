@@ -107,7 +107,7 @@ function normalizeProduct(payload, colorOptions, sizeOptions) {
     };
 }
 
-export default function SingleProductMainSection() {
+export default function SingleProductMainSection({ onStartPersonalizing }) {
     const { productSlug } = useParams();
     const navigate = useNavigate();
     const [resolvedProduct, setResolvedProduct] = useState({ ...product, images: productImages });
@@ -281,6 +281,7 @@ export default function SingleProductMainSection() {
                         onIncreaseQuantity={increaseQuantity}
                         onAddToCart={addToCart}
                         onBuyNow={buyNow}
+                        onStartPersonalizing={onStartPersonalizing}
                         cartNotice={cartNotice}
                     />
                 </div>

@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CustomerAddress;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,6 +37,7 @@ class OrderController extends Controller
         $validated = $request->validate([
             ...$this->customerRules(),
             'notes' => ['nullable', 'string', 'max:2000'],
+            'save_address' => ['sometimes', 'boolean'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['nullable', 'integer'],
             'items.*.name' => ['required', 'string', 'max:255'],
@@ -77,6 +80,11 @@ class OrderController extends Controller
 
             return $order;
         });
+
+        $user = $request->user();
+        if ($user && $request->boolean('save_address')) {
+            $this->saveAddressToAccount($user, $validated);
+        }
 
         $order->load('items');
 
@@ -171,6 +179,27 @@ class OrderController extends Controller
         ];
     }
 
+    /** Adds the checkout address to the customer's address book unless an identical one is already saved. */
+    private function saveAddressToAccount(User $user, array $validated): void
+    {
+        $fields = collect($validated)->only([
+            'first_name', 'last_name', 'company_name', 'phone', 'country',
+            'street_address', 'apartment', 'state', 'city', 'zip',
+        ])->all();
+
+        $matchOn = collect($fields)->except(['company_name', 'apartment'])->all();
+
+        if ($user->addresses()->where($matchOn)->exists()
+            || $user->addresses()->count() >= CustomerAddress::MAX_PER_USER) {
+            return;
+        }
+
+        $user->addresses()->create([
+            ...$fields,
+            'is_default' => ! $user->addresses()->where('is_default', true)->exists(),
+        ]);
+    }
+
     /** Keeps the design summary small: inline (data:) previews are not stored on the order. */
     private function normalizeDesign(?array $design): ?array
     {
@@ -201,43 +230,6 @@ class OrderController extends Controller
 
     private function transformOrder(Order $order): array
     {
-        return [
-            'id' => $order->id,
-            'order_number' => $order->order_number,
-            'first_name' => $order->first_name,
-            'last_name' => $order->last_name,
-            'email' => $order->email,
-            'company_name' => $order->company_name,
-            'country' => $order->country,
-            'street_address' => $order->street_address,
-            'apartment' => $order->apartment,
-            'state' => $order->state,
-            'city' => $order->city,
-            'zip' => $order->zip,
-            'phone' => $order->phone,
-            'notes' => $order->notes,
-            'admin_notes' => $order->admin_notes,
-            'subtotal' => (float) $order->subtotal,
-            'shipping' => (float) $order->shipping,
-            'tax' => (float) $order->tax,
-            'tax_rate' => Order::TAX_RATE,
-            'total' => (float) $order->total,
-            'status' => $order->status,
-            'units' => $order->items->sum('quantity'),
-            'created_at' => $order->created_at,
-            'updated_at' => $order->updated_at,
-            'items' => $order->items->map(fn (OrderItem $item) => [
-                'id' => $item->id,
-                'product_id' => $item->product_id,
-                'name' => $item->name,
-                'color' => $item->color,
-                'size' => $item->size,
-                'design' => $item->design,
-                'image' => $item->image,
-                'price' => (float) $item->price,
-                'quantity' => $item->quantity,
-                'line_total' => round((float) $item->price * $item->quantity, 2),
-            ])->values(),
-        ];
+        return $order->toApiArray(forAdmin: true);
     }
 }

@@ -15,6 +15,7 @@
         "vite": "^8.0.0"
     },
     "dependencies": {
+        "@mediapipe/tasks-vision": "1.1.1",
         "@radix-ui/react-label": "^2.1.8",
         "@radix-ui/react-slot": "^1.2.4",
         "@tiptap/pm": "^3.22.5",
@@ -32,6 +33,7 @@
         "react-router-dom": "^7.14.2",
         "recharts": "^3.8.0",
         "sonner": "^2.0.7",
-        "tailwind-merge": "^3.5.0"
+        "tailwind-merge": "^3.5.0",
+        "three": "0.186.1"
     }
 }

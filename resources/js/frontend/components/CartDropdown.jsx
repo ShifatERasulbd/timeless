@@ -30,7 +30,9 @@ export default function CartDropdown() {
 
     return (
         // Padding-top keeps the hover area contiguous with the trigger icon (no dead gap).
-        <div className="invisible absolute right-0 top-full z-50 max-h-0 w-[340px] overflow-hidden pt-3 opacity-0 transition-[max-height,opacity] duration-300 ease-out group-focus-within:visible group-focus-within:max-h-[480px] group-focus-within:opacity-100 group-hover:visible group-hover:max-h-[480px] group-hover:opacity-100">
+        // Opens on hover, or on keyboard focus only (:focus-visible) — a mouse click focuses the
+        // button too, and plain focus-within would keep the dropdown stuck open after the cursor leaves.
+        <div className="invisible absolute right-0 top-full z-50 max-h-0 w-[340px] overflow-hidden pt-3 opacity-0 transition-[max-height,opacity] duration-300 ease-out group-has-[:focus-visible]:visible group-has-[:focus-visible]:max-h-[480px] group-has-[:focus-visible]:opacity-100 group-hover:visible group-hover:max-h-[480px] group-hover:opacity-100">
             <div className="border border-zinc-200 bg-white p-4 text-left shadow-[0_18px_60px_rgba(0,0,0,0.12)]">
                 {items.length === 0 ? (
                     <p className="py-6 text-center text-sm text-zinc-500">Your cart is empty.</p>

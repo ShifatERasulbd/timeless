@@ -14,6 +14,7 @@ import {
     Images,
     Italic,
     SendToBack,
+    ShoppingBag,
     ShoppingCart,
     Star as StarIcon,
     Square,
@@ -100,6 +101,10 @@ export default function CustomizePanel({
     onDownload,
     onPreviewMockups,
     onOrderNow,
+    onAddToCart,
+    productSizes = [],
+    selectedSize,
+    onSelectSize,
     isSaving,
     savedUrl,
 }) {
@@ -145,6 +150,31 @@ export default function CustomizePanel({
                     </div>
                     {!isCollapsed('checkout') && (
                         <>
+                    {productSizes.length > 0 && (
+                        <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3">
+                            <Label id="order-size-label" className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">Size</Label>
+                            <div role="radiogroup" aria-labelledby="order-size-label" className="flex flex-wrap gap-2">
+                                {productSizes.map((size) => (
+                                    <button
+                                        key={size}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={selectedSize === size}
+                                        onClick={() => onSelectSize?.(size)}
+                                        className={cn(
+                                            'min-w-11 rounded-xl border px-3 py-2 text-sm font-medium uppercase transition-colors',
+                                            selectedSize === size
+                                                ? 'border-zinc-950 bg-zinc-950 text-white'
+                                                : 'border-zinc-300 bg-white text-zinc-700 hover:border-zinc-900 hover:text-zinc-900'
+                                        )}
+                                    >
+                                        {size}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3">
                         <Label htmlFor="order-quantity" className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">Quantity</Label>
                         <div className="inline-flex h-11 items-center overflow-hidden rounded-xl border border-zinc-300 bg-white">
@@ -210,6 +240,17 @@ export default function CustomizePanel({
                     <Button type="button" variant="outline" className="h-12 w-full rounded-2xl" onClick={onPreviewMockups} disabled={isSaving}>
                         <Images className="size-4" />
                         Preview mockups
+                    </Button>
+
+                    <Button
+                        type="button"
+                        variant="outline"
+                        className="h-12 w-full rounded-2xl border-zinc-950 text-zinc-950 hover:bg-zinc-950 hover:text-white"
+                        onClick={onAddToCart}
+                        disabled={isSaving || !onAddToCart}
+                    >
+                        <ShoppingBag className="size-4" />
+                        {isSaving ? 'Saving…' : 'Add to cart'}
                     </Button>
 
                     <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">

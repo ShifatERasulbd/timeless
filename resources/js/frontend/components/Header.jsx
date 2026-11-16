@@ -1,12 +1,16 @@
 import { Menu, Search, ShoppingCart, SlidersHorizontal, UserRound } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import useCartCount from '../hooks/useCartCount';
 import useCategories from '../hooks/useCategories';
+import useSiteSettings from '../hooks/useSiteSettings';
+import { normalizeImagePath } from '../../utils/productDisplay';
 import { categoryShopPath } from '../../utils/shopPaths';
 import { timelessFontClass } from '../../utils/typography';
+import AccountMenu from './AccountMenu.jsx';
 import CartDropdown from './CartDropdown.jsx';
+import SearchModal from './SearchModal.jsx';
 
 const navLinkClass =
     'text-[0.85rem] font-medium uppercase tracking-[0.22em] text-zinc-950 transition-opacity hover:opacity-60';
@@ -144,14 +148,20 @@ function CategoryNavItem({ category }) {
 }
 
 const utilityIcons = [
-    { label: 'Account', icon: UserRound, href: '/login' },
-    { label: 'Search', icon: Search, href: '#search' },
+    { label: 'Account', icon: UserRound, href: '/account' },
+    { label: 'Search', icon: Search },
     { label: 'Cart', icon: ShoppingCart, href: '/cart' },
 ];
 
 export default function Header() {
     const cartCount = useCartCount();
     const categories = useCategories();
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const closeSearch = useCallback(() => setIsSearchOpen(false), []);
+    const { settings, isLoaded: areSettingsLoaded } = useSiteSettings();
+    const headerLogo = normalizeImagePath(settings.header_logo || null);
+    const [failedLogo, setFailedLogo] = useState(null);
+    const showLogoImage = Boolean(headerLogo) && failedLogo !== headerLogo;
 
     return (
         <header className={`${timelessFontClass} sticky top-0 z-50 w-full text-zinc-950`}>
@@ -166,27 +176,32 @@ export default function Header() {
                         ))}
                     </nav>
 
-                    {/* Center: Brand Logo */}
+                    {/* Center: Brand Logo (header logo from the Settings module, text as a fallback) */}
                     <div className="flex xl:absolute xl:left-1/2 xl:-translate-x-1/2">
                         <Link
                             to="/"
                             className="flex min-w-0 items-center text-[1.65rem] font-black tracking-[0.22em] text-zinc-950 transition-opacity hover:opacity-80 sm:text-[1.9rem]"
                             aria-label="Timeless home"
                         >
-                            TIMLESS
+                            {showLogoImage ? (
+                                <img
+                                    src={headerLogo}
+                                    alt="Timeless"
+                                    onError={() => setFailedLogo(headerLogo)}
+                                    className="h-9 w-auto max-w-[180px] object-contain sm:h-11 sm:max-w-[220px]"
+                                />
+                            ) : areSettingsLoaded ? (
+                                'TIMLESS'
+                            ) : (
+                                // Hold the logo's space while settings load, so the text doesn't flash first.
+                                <span className="block h-9 w-[114px] sm:h-11 sm:w-[140px]" aria-hidden="true" />
+                            )}
                         </Link>
                     </div>
 
                     {/* Right: Customizing Button & Utility Icons */}
                     <div className="flex items-center gap-2 sm:gap-3">
-                        {/* <a
-                            href="#customize"
-                            aria-label="Start customizing"
-                            className="inline-flex size-10 items-center justify-center rounded-sm bg-[#e65c00] text-[0.78rem] font-semibold uppercase tracking-[0.2em] text-white transition-transform hover:-translate-y-0.5 hover:bg-[#d55400] sm:h-auto sm:w-auto sm:gap-2 sm:px-4 sm:py-2"
-                        >
-                            <SlidersHorizontal className="size-4 shrink-0" />
-                            <span className="hidden whitespace-nowrap sm:inline">Start Customizing</span>
-                        </a> */}
+                    
 
                         <div className="hidden items-center gap-1 md:flex">
                             {utilityIcons.map(({ label, icon: Icon, href }) => {
@@ -210,6 +225,25 @@ export default function Header() {
                                             </button>
                                             <CartDropdown />
                                         </div>
+                                    );
+                                }
+
+                                if (label === 'Account') {
+                                    return <AccountMenu key={label} />;
+                                }
+
+                                if (label === 'Search') {
+                                    return (
+                                        <button
+                                            key={label}
+                                            type="button"
+                                            onClick={() => setIsSearchOpen(true)}
+                                            aria-label="Search products"
+                                            aria-haspopup="dialog"
+                                            className="inline-flex size-11 items-center justify-center rounded-full text-zinc-950 transition-colors hover:bg-zinc-200 hover:text-zinc-700"
+                                        >
+                                            <Icon className="size-5" strokeWidth={1.75} />
+                                        </button>
                                     );
                                 }
 
@@ -246,6 +280,8 @@ export default function Header() {
 
                 </div>
             </div>
+
+            {isSearchOpen ? <SearchModal onClose={closeSearch} /> : null}
         </header>
     );
 }

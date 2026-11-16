@@ -1,7 +1,9 @@
 import { Suspense, lazy, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { Navigate, useLocation, useSearchParams } from 'react-router-dom';
 
 import SectionSkeleton from '../components/SectionSkeleton.jsx';
+import { safeRedirectPath } from '../../utils/redirect';
+import useAuth from '../hooks/useAuth';
 
 const AuthUserTypeTabs = lazy(() => import('../components/AuthUserTypeTabs.jsx'));
 const AuthLoginForm = lazy(() => import('../components/AuthLoginForm.jsx'));
@@ -11,10 +13,17 @@ const authShowcaseImage = '/uploads/heroes/images/hero1.webp';
 
 export default function AuthPage() {
     const location = useLocation();
+    const [searchParams] = useSearchParams();
+    const { isAuthenticated } = useAuth();
     const isRegister = location.pathname.toLowerCase() === '/register';
-    const [userType, setUserType] = useState('normal');
+    const [userType, setUserType] = useState(() => (searchParams.get('type') === 'corporate' ? 'corporate' : 'normal'));
     const isCorporate = userType === 'corporate';
     const swapSides = isCorporate;
+
+    // Already signed in (e.g. returning to /login): go straight to the account (or the requested page).
+    if (isAuthenticated) {
+        return <Navigate to={safeRedirectPath(searchParams.get('redirect'))} replace />;
+    }
 
     return (
         <section className="bg-[#f5f5f3] px-5 py-12 sm:px-8 lg:px-12 lg:py-16">
@@ -33,7 +42,12 @@ export default function AuthPage() {
                     </Suspense>
 
                     <Suspense fallback={<SectionSkeleton heightClass="h-[540px]" className="px-0 py-2" />}>
-                        {isRegister ? <AuthRegisterForm userType={userType} /> : <AuthLoginForm userType={userType} />}
+                        {/* Keyed by tab so switching account type starts with a clean form. */}
+                        {isRegister ? (
+                            <AuthRegisterForm key={userType} userType={userType} />
+                        ) : (
+                            <AuthLoginForm key={userType} userType={userType} />
+                        )}
                     </Suspense>
                 </div>
 

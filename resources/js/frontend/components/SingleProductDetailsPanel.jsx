@@ -25,6 +25,7 @@ export default function SingleProductDetailsPanel({
     onIncreaseQuantity,
     onAddToCart,
     onBuyNow,
+    onStartPersonalizing,
     cartNotice,
 }) {
     return (
@@ -140,19 +141,14 @@ export default function SingleProductDetailsPanel({
                         Buy Now
                     </button>
 
-                    {/* Jumps to the customizer under the description on this page. */}
-                    <a
-                        href="#customize"
-                        onClick={(event) => {
-                            const section = document.getElementById('customize');
-                            if (!section) return;
-                            event.preventDefault();
-                            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }}
+                    {/* Loads the customizer under the description (it isn't loaded until now) and scrolls to it. */}
+                    <button
+                        type="button"
+                        onClick={onStartPersonalizing}
                         className="inline-flex h-[50px] flex-1 min-w-[220px] items-center justify-center bg-[#4f3ed8] text-[0.95rem] font-semibold uppercase tracking-[0.08em] text-white"
                     >
-                        Start Customizing
-                    </a>
+                        Start Personalizing
+                    </button>
                 </div>
 
                 <p className="border-t border-zinc-200 pt-2.5 text-[0.98rem] text-zinc-500">
